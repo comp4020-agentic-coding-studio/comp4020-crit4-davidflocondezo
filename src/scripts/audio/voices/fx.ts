@@ -1,6 +1,7 @@
 import type { Scheduler } from "../scheduler";
 import type { FilterMacro } from "../filterMacro";
 import { createNoiseBuffer } from "../noise";
+import { SESSION_PITCH_RATIO } from "../scale";
 
 // Reference cutoff the macro's brightness scale is centered on -- 1.0 means
 // "macro at its neutral midpoint," so FX brighten/darken together with the
@@ -112,9 +113,10 @@ export function createFxVoice(
 
   function triggerAt(variant: number, time: number): void {
     const descriptor = FX_DESCRIPTORS[variant] ?? FX_DESCRIPTORS[0];
-    if (descriptor.kind === "impact") triggerImpact(descriptor.freq, time);
-    else if (descriptor.kind === "zap") triggerZap(descriptor.freq, time);
-    else triggerReverse(descriptor.freq, time);
+    const freq = descriptor.freq * SESSION_PITCH_RATIO;
+    if (descriptor.kind === "impact") triggerImpact(freq, time);
+    else if (descriptor.kind === "zap") triggerZap(freq, time);
+    else triggerReverse(freq, time);
   }
 
   return {

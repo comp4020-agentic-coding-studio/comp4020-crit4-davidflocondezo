@@ -12,7 +12,10 @@ const SUB_OCTAVES_DOWN = 4; // divide frequency to land in true sub-bass range
  * random walk used by the melody voices.
  */
 export function createBassVoice(ctx: AudioContext, destination: AudioNode, scheduler: Scheduler): () => void {
-  let rootDegree = 0;
+  // Starting degree is randomized per session too -- otherwise every reload
+  // opens on the same root and only reveals a different one after the first
+  // bar's random walk.
+  let rootDegree = Math.floor(Math.random() * (BASS_MAX_DEGREE + 1));
 
   function triggerAt(time: number): void {
     const freq = SCALE_FREQUENCIES[rootDegree] / SUB_OCTAVES_DOWN;

@@ -1,5 +1,6 @@
 import type { Scheduler } from "../scheduler";
 import { createNoiseBuffer } from "../noise";
+import { SESSION_PITCH_RATIO } from "../scale";
 
 const RISER_DURATION = 3; // seconds, roughly a 1.5-bar sweep at 150 BPM
 
@@ -25,8 +26,8 @@ export function createRiserVoice(
     const filter = ctx.createBiquadFilter();
     filter.type = "bandpass";
     filter.Q.value = 1;
-    filter.frequency.setValueAtTime(300, time);
-    filter.frequency.exponentialRampToValueAtTime(6000, time + RISER_DURATION);
+    filter.frequency.setValueAtTime(300 * SESSION_PITCH_RATIO, time);
+    filter.frequency.exponentialRampToValueAtTime(6000 * SESSION_PITCH_RATIO, time + RISER_DURATION);
 
     const gain = ctx.createGain();
     gain.gain.setValueAtTime(0.001, time);
@@ -43,13 +44,13 @@ export function createRiserVoice(
   function triggerTone(time: number): void {
     const osc = ctx.createOscillator();
     osc.type = "sawtooth";
-    osc.frequency.setValueAtTime(110, time);
-    osc.frequency.exponentialRampToValueAtTime(1600, time + RISER_DURATION);
+    osc.frequency.setValueAtTime(110 * SESSION_PITCH_RATIO, time);
+    osc.frequency.exponentialRampToValueAtTime(1600 * SESSION_PITCH_RATIO, time + RISER_DURATION);
 
     const filter = ctx.createBiquadFilter();
     filter.type = "lowpass";
-    filter.frequency.setValueAtTime(400, time);
-    filter.frequency.exponentialRampToValueAtTime(8000, time + RISER_DURATION);
+    filter.frequency.setValueAtTime(400 * SESSION_PITCH_RATIO, time);
+    filter.frequency.exponentialRampToValueAtTime(8000 * SESSION_PITCH_RATIO, time + RISER_DURATION);
     filter.Q.value = 2;
 
     const gain = ctx.createGain();
