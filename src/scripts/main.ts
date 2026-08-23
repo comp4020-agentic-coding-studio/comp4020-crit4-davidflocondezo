@@ -1,6 +1,10 @@
 import { audioContext, masterGain, scheduler, unlockAudio } from "./audio/context";
+import { createAtmosphereVoice } from "./audio/voices/atmosphere";
 import { createBassVoice } from "./audio/voices/bass";
+import { createFxVoice } from "./audio/voices/fx";
 import { createKickVoice } from "./audio/voices/kick";
+import { createMelodyVoice } from "./audio/voices/melody";
+import { createRiserVoice } from "./audio/voices/riser";
 import { createStabVoice } from "./audio/voices/stab";
 import { attachKeyboard } from "./input/keyboard";
 
@@ -19,11 +23,27 @@ function startFoundation(): void {
 }
 
 const stabVoice = createStabVoice(audioContext, masterGain, scheduler);
+const fxVoice = createFxVoice(audioContext, masterGain, scheduler);
+const atmosphereVoice = createAtmosphereVoice(audioContext, masterGain, scheduler);
+const melodyVoice = createMelodyVoice(audioContext, masterGain, scheduler);
+const riserVoice = createRiserVoice(audioContext, masterGain, scheduler);
 
 attachKeyboard(
   {
     onStabPress(scaleDegree) {
       stabVoice.trigger(scaleDegree);
+    },
+    onFxPress(variant) {
+      fxVoice.trigger(variant);
+    },
+    onAtmosphereToggle(variant, active) {
+      atmosphereVoice.setActive(variant, active);
+    },
+    onMelodyHold(params, active) {
+      melodyVoice.setActive(params, active);
+    },
+    onRiserPress(variant) {
+      riserVoice.trigger(variant);
     },
   },
   () => {
