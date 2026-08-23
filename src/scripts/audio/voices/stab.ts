@@ -1,4 +1,5 @@
 import type { Scheduler } from "../scheduler";
+import type { FilterMacro } from "../filterMacro";
 import { SCALE_FREQUENCIES } from "../scale";
 
 // Stabs sit an octave above the scale table's base register so they read
@@ -18,6 +19,7 @@ export function createStabVoice(
   ctx: AudioContext,
   destination: AudioNode,
   scheduler: Scheduler,
+  filterMacro: FilterMacro,
 ): StabVoice {
   function triggerAt(scaleDegree: number, time: number): void {
     const degree = Math.min(scaleDegree + STAB_OCTAVE_OFFSET, SCALE_FREQUENCIES.length - 1);
@@ -27,9 +29,13 @@ export function createStabVoice(
     osc.type = "sawtooth";
     osc.frequency.setValueAtTime(freq, time);
 
+    // Global macro sets the base cutoff; per-trigger jitter (+/-30%) on top
+    // so repeated notes on the same key never sound identical.
+    const base = filterMacro.getCutoff();
+    const cutoff = Math.min(Math.max(base * (0.7 + Math.random() * 0.6), 200), 16000);
     const filter = ctx.createBiquadFilter();
     filter.type = "lowpass";
-    filter.frequency.setValueAtTime(900 + Math.random() * 800, time);
+    filter.frequency.setValueAtTime(cutoff, time);
     filter.Q.value = 4 + Math.random() * 4;
 
     const gain = ctx.createGain();

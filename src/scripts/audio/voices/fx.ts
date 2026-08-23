@@ -1,5 +1,11 @@
 import type { Scheduler } from "../scheduler";
+import type { FilterMacro } from "../filterMacro";
 import { createNoiseBuffer } from "../noise";
+
+// Reference cutoff the macro's brightness scale is centered on -- 1.0 means
+// "macro at its neutral midpoint," so FX brighten/darken together with the
+// rest of the mix without losing each variant's own character.
+const MACRO_REFERENCE_HZ = 2000;
 
 type FxKind = "impact" | "zap" | "reverse";
 
@@ -29,8 +35,17 @@ export interface FxVoice {
 }
 
 /** One-shots quantized to the next 16th, same grid as the stabs. */
-export function createFxVoice(ctx: AudioContext, destination: AudioNode, scheduler: Scheduler): FxVoice {
+export function createFxVoice(
+  ctx: AudioContext,
+  destination: AudioNode,
+  scheduler: Scheduler,
+  filterMacro: FilterMacro,
+): FxVoice {
   const noiseBuffer = createNoiseBuffer(ctx, 1);
+
+  function macroScale(): number {
+    return Math.min(Math.max(filterMacro.getCutoff() / MACRO_REFERENCE_HZ, 0.4), 3);
+  }
 
   function triggerImpact(freq: number, time: number): void {
     const noise = ctx.createBufferSource();
@@ -38,7 +53,7 @@ export function createFxVoice(ctx: AudioContext, destination: AudioNode, schedul
 
     const filter = ctx.createBiquadFilter();
     filter.type = "bandpass";
-    filter.frequency.setValueAtTime(freq * (0.85 + Math.random() * 0.3), time);
+    filter.frequency.setValueAtTime(freq * macroScale() * (0.85 + Math.random() * 0.3), time);
     filter.Q.value = 1.2;
 
     const gain = ctx.createGain();
@@ -60,7 +75,7 @@ export function createFxVoice(ctx: AudioContext, destination: AudioNode, schedul
 
     const filter = ctx.createBiquadFilter();
     filter.type = "highpass";
-    filter.frequency.setValueAtTime(300, time);
+    filter.frequency.setValueAtTime(300 * macroScale(), time);
 
     const gain = ctx.createGain();
     gain.gain.setValueAtTime(0.5, time);
@@ -80,7 +95,7 @@ export function createFxVoice(ctx: AudioContext, destination: AudioNode, schedul
 
     const filter = ctx.createBiquadFilter();
     filter.type = "bandpass";
-    filter.frequency.setValueAtTime(freq, time);
+    filter.frequency.setValueAtTime(freq * macroScale(), time);
     filter.Q.value = 0.9;
 
     const gain = ctx.createGain();

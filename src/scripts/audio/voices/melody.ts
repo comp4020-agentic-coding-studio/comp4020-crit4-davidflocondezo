@@ -1,4 +1,5 @@
 import type { Scheduler } from "../scheduler";
+import type { FilterMacro } from "../filterMacro";
 import { SCALE_FREQUENCIES, randomWalkStep } from "../scale";
 import type { MelodyParams } from "../../input/keymap";
 
@@ -25,6 +26,7 @@ export function createMelodyVoice(
   ctx: AudioContext,
   destination: AudioNode,
   scheduler: Scheduler,
+  filterMacro: FilterMacro,
 ): MelodyVoice {
   const lines = new Map<number, ActiveLine>();
 
@@ -36,9 +38,11 @@ export function createMelodyVoice(
     osc.type = "sine";
     osc.frequency.setValueAtTime(freq, time);
 
+    const base = filterMacro.getCutoff();
+    const cutoff = Math.min(Math.max(base * (0.8 + Math.random() * 0.4), 200), 16000);
     const filter = ctx.createBiquadFilter();
     filter.type = "lowpass";
-    filter.frequency.setValueAtTime(1200 + Math.random() * 1000, time);
+    filter.frequency.setValueAtTime(cutoff, time);
 
     const gain = ctx.createGain();
     gain.gain.setValueAtTime(0.001, time);

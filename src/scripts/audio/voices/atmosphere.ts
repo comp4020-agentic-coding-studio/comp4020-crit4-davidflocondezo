@@ -1,12 +1,16 @@
 import type { Scheduler } from "../scheduler";
+import type { FilterMacro } from "../filterMacro";
 import { SCALE_FREQUENCIES } from "../scale";
 
 const CHORD_STEPS = [0, 2, 4]; // stacked scale thirds: root, third, fifth
 const FADE_TIME_CONSTANT = 0.6;
+const MACRO_FOLLOW_TIME_CONSTANT = 0.3; // smooths mouse-driven sweeps, avoids zipper noise
 
 interface ActiveVoicing {
   oscillators: OscillatorNode[];
   gain: GainNode;
+  filter: BiquadFilterNode;
+  localFactor: number; // fixed per-voicing offset so pads don't all sound identical
 }
 
 export interface AtmosphereVoice {
@@ -23,15 +27,17 @@ export function createAtmosphereVoice(
   ctx: AudioContext,
   destination: AudioNode,
   scheduler: Scheduler,
+  filterMacro: FilterMacro,
 ): AtmosphereVoice {
   const active = new Map<number, ActiveVoicing>();
 
   function startVoicing(variant: number, time: number): void {
     if (active.has(variant)) return;
 
+    const localFactor = 0.85 + Math.random() * 0.3;
     const filter = ctx.createBiquadFilter();
     filter.type = "lowpass";
-    filter.frequency.setValueAtTime(1400, time);
+    filter.frequency.setValueAtTime(filterMacro.getCutoff() * localFactor, time);
     filter.Q.value = 0.5;
 
     const gain = ctx.createGain();
@@ -50,7 +56,7 @@ export function createAtmosphereVoice(
       return osc;
     });
 
-    active.set(variant, { oscillators, gain });
+    active.set(variant, { oscillators, gain, filter, localFactor });
   }
 
   function stopVoicing(variant: number): void {
@@ -65,6 +71,19 @@ export function createAtmosphereVoice(
     const stopAt = now + FADE_TIME_CONSTANT * 4;
     for (const osc of voicing.oscillators) osc.stop(stopAt);
   }
+
+  // Sustained pads follow the mouse-driven macro continuously, not just at
+  // note-on, since a held pad can outlast many mouse movements.
+  scheduler.onTick((_tickIndex, time) => {
+    const base = filterMacro.getCutoff();
+    for (const voicing of active.values()) {
+      voicing.filter.frequency.setTargetAtTime(
+        base * voicing.localFactor,
+        time,
+        MACRO_FOLLOW_TIME_CONSTANT,
+      );
+    }
+  });
 
   return {
     setActive(variant: number, isActive: boolean): void {

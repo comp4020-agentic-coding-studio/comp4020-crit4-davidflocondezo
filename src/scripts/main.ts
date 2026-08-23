@@ -1,4 +1,5 @@
 import { audioContext, masterGain, scheduler, unlockAudio } from "./audio/context";
+import { createFilterMacro } from "./audio/filterMacro";
 import { createAtmosphereVoice } from "./audio/voices/atmosphere";
 import { createBassVoice } from "./audio/voices/bass";
 import { createFxVoice } from "./audio/voices/fx";
@@ -22,10 +23,11 @@ function startFoundation(): void {
   createBassVoice(audioContext, masterGain, scheduler);
 }
 
-const stabVoice = createStabVoice(audioContext, masterGain, scheduler);
-const fxVoice = createFxVoice(audioContext, masterGain, scheduler);
-const atmosphereVoice = createAtmosphereVoice(audioContext, masterGain, scheduler);
-const melodyVoice = createMelodyVoice(audioContext, masterGain, scheduler);
+const filterMacro = createFilterMacro();
+const stabVoice = createStabVoice(audioContext, masterGain, scheduler, filterMacro);
+const fxVoice = createFxVoice(audioContext, masterGain, scheduler, filterMacro);
+const atmosphereVoice = createAtmosphereVoice(audioContext, masterGain, scheduler, filterMacro);
+const melodyVoice = createMelodyVoice(audioContext, masterGain, scheduler, filterMacro);
 const riserVoice = createRiserVoice(audioContext, masterGain, scheduler);
 
 attachKeyboard(
