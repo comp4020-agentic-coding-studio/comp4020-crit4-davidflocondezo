@@ -40,3 +40,27 @@ A starting point, not a rulebook. As you learn what your prototype needs --- a
 convention the work has to hold to, a sensor that keeps catching you out (a
 linter, say), a fact about the stack that is easy to get wrong --- write it down
 here and wire it into `check`. Growing this file is the work.
+
+- `scrollIntoView` isn't implemented in jsdom. Any DOM-wiring code that calls it
+  must feature-detect first (`typeof el.scrollIntoView === "function"`), or the
+  jsdom-based tests throw.
+- Same story for `window.matchMedia` --- jsdom leaves it `undefined`. Feature-detect
+  (`typeof view.matchMedia === "function"`) before calling it. Also: don't
+  reference the bare global `window` in DOM-wiring code tested via `new
+  JSDOM(...)` outside a jsdom test environment (these `spec/*-dom.test.ts`
+  files run under vitest's `node` environment) --- derive it from the element
+  instead (`el.ownerDocument.defaultView`), or it throws `ReferenceError:
+  window is not defined`.
+- `[hidden]` is easy to lose to CSS. If a selector also sets `display` on the
+  same element elsewhere in the stylesheet, that rule wins and the element
+  stays visible even with the attribute present --- add an explicit
+  `.foo[hidden] { display: none; }` override wherever both apply.
+- Don't hand-place elements in a shared CSS Grid with per-item `grid-column`
+  only. Auto-placement fills whatever cell comes next for anything missing an
+  explicit row, which silently produces gaps in unrelated places once one
+  element's height changes. Use `grid-template-areas` for any layout with more
+  than two grid children.
+- Asset paths (poster `src`, etc.) must be built through
+  `import.meta.env.BASE_URL`-safe joins (strip the leading/trailing slash
+  before concatenating), never as a root-absolute path --- root-absolute works
+  on localhost and 404s under the Pages base path.
