@@ -3,8 +3,8 @@ import Layout from "../layouts/Layout.astro";
 ---
 
 <Layout
-  title="COMP4020 prototype"
-  description="Replace this with one sentence saying what this page is. A search result and a link preview both show it."
+  title="Hardstyle instrument"
+  description="A 150 BPM hardstyle instrument played on your keyboard: 36 keys of live-synthesized stabs, FX, pads, generative melody, and risers, locked to a shared musical grid so nothing you play can sound wrong."
 >
   <header>
     <nav aria-label="Primary">
@@ -12,12 +12,14 @@ import Layout from "../layouts/Layout.astro";
     </nav>
   </header>
   <main>
-    <h1>COMP4020 prototype</h1>
-    <p data-testid="intro">
-      Replace this with your prototype. This week's brief is on the course
-      website; <code>spec/README.md</code> explains how the checks in this repo
-      relate to it.
-    </p>
+    <h1>Hardstyle instrument</h1>
+    <p id="opening-prompt" class="opening-prompt">Press any key to begin.</p>
+    <section
+      id="keyboard-overlay"
+      class="keyboard-overlay"
+      aria-label="Instrument keyboard, 36 keys across four rows"
+    >
+    </section>
   </main>
   <script src="../scripts/main.ts"></script>
 </Layout>

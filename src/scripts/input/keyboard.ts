@@ -2,11 +2,11 @@ import { lookupKey } from "./keymap";
 import type { MelodyParams } from "./keymap";
 
 export interface KeyboardHandlers {
-  onFxPress?(variant: number): void;
-  onStabPress?(scaleDegree: number): void;
-  onAtmosphereToggle?(variant: number, active: boolean): void;
-  onMelodyHold?(params: MelodyParams, active: boolean): void;
-  onRiserPress?(variant: number): void;
+  onFxPress?(variant: number, key: string): void;
+  onStabPress?(scaleDegree: number, key: string): void;
+  onAtmosphereToggle?(variant: number, active: boolean, key: string): void;
+  onMelodyHold?(params: MelodyParams, active: boolean, key: string): void;
+  onRiserPress?(variant: number, key: string): void;
 }
 
 /**
@@ -30,19 +30,19 @@ export function attachKeyboard(handlers: KeyboardHandlers, onFirstKey: () => voi
 
     switch (def.category) {
       case "fx":
-        handlers.onFxPress?.(def.variant);
+        handlers.onFxPress?.(def.variant, def.key);
         break;
       case "stab":
-        handlers.onStabPress?.(def.scaleDegree);
+        handlers.onStabPress?.(def.scaleDegree, def.key);
         break;
       case "riser":
-        handlers.onRiserPress?.(def.variant);
+        handlers.onRiserPress?.(def.variant, def.key);
         break;
       case "atmosphere": {
         const nowActive = !activeAtmosphere.has(def.key);
         if (nowActive) activeAtmosphere.add(def.key);
         else activeAtmosphere.delete(def.key);
-        handlers.onAtmosphereToggle?.(def.variant, nowActive);
+        handlers.onAtmosphereToggle?.(def.variant, nowActive, def.key);
         break;
       }
       case "melody":
@@ -51,6 +51,7 @@ export function attachKeyboard(handlers: KeyboardHandlers, onFirstKey: () => voi
         handlers.onMelodyHold?.(
           { registerOffset: def.registerOffset, tickSubdivision: def.tickSubdivision },
           true,
+          def.key,
         );
         break;
     }
@@ -64,6 +65,7 @@ export function attachKeyboard(handlers: KeyboardHandlers, onFirstKey: () => voi
     handlers.onMelodyHold?.(
       { registerOffset: def.registerOffset, tickSubdivision: def.tickSubdivision },
       false,
+      def.key,
     );
   }
 

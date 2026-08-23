@@ -3,14 +3,79 @@ body {
   padding: 2rem;
   font-family: system-ui, sans-serif;
   line-height: 1.6;
-  color: #1a1a1a;
+  color: #f2f2f7;
+  background: #0b0b12;
 }
 
 main {
-  max-width: 40rem;
+  max-width: 52rem;
   margin: 0 auto;
 }
 
 a {
-  color: #0b5fff;
+  color: #7db4ff;
+}
+
+.opening-prompt {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #f2f2f7;
+}
+
+.opening-prompt[hidden] {
+  display: none;
+}
+
+.keyboard-overlay {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 1.5rem;
+  user-select: none;
+}
+
+.keyboard-overlay__row {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.keyboard-overlay__key {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.25rem;
+  aspect-ratio: 1;
+  border-radius: 0.4rem;
+  font-weight: 700;
+  font-size: 0.9rem;
+  background: var(--key-color, #2a2a38);
+  color: #0b0b12;
+  opacity: 0.55;
+  transition: opacity 80ms ease-out, transform 80ms ease-out;
+}
+
+.keyboard-overlay__key--active {
+  opacity: 1;
+  transform: translateY(-2px);
+}
+
+.keyboard-overlay__key--fx {
+  --key-color: #ff6b6b;
+}
+
+.keyboard-overlay__key--stab {
+  --key-color: #4d9dff;
+}
+
+.keyboard-overlay__key--atmosphere {
+  --key-color: #b28dff;
+}
+
+.keyboard-overlay__key--melody {
+  --key-color: #4de0a0;
+}
+
+.keyboard-overlay__key--riser {
+  --key-color: #ffd24d;
 }

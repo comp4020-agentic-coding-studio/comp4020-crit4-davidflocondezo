@@ -8,11 +8,11 @@ import { createMelodyVoice } from "./audio/voices/melody";
 import { createRiserVoice } from "./audio/voices/riser";
 import { createStabVoice } from "./audio/voices/stab";
 import { attachKeyboard } from "./input/keyboard";
+import { renderKeyboardOverlay } from "./ui/keyboardOverlay";
 
-const intro = document.querySelector<HTMLElement>('[data-testid="intro"]');
-if (intro) {
-  intro.dataset.ready = "true";
-}
+const overlayContainer = document.querySelector<HTMLElement>("#keyboard-overlay");
+const openingPrompt = document.querySelector<HTMLElement>("#opening-prompt");
+const overlay = overlayContainer ? renderKeyboardOverlay(overlayContainer) : null;
 
 let foundationStarted = false;
 
@@ -32,23 +32,29 @@ const riserVoice = createRiserVoice(audioContext, masterGain, scheduler);
 
 attachKeyboard(
   {
-    onStabPress(scaleDegree) {
+    onStabPress(scaleDegree, key) {
       stabVoice.trigger(scaleDegree);
+      overlay?.flashKey(key);
     },
-    onFxPress(variant) {
+    onFxPress(variant, key) {
       fxVoice.trigger(variant);
+      overlay?.flashKey(key);
     },
-    onAtmosphereToggle(variant, active) {
+    onAtmosphereToggle(variant, active, key) {
       atmosphereVoice.setActive(variant, active);
+      overlay?.setKeyActive(key, active);
     },
-    onMelodyHold(params, active) {
+    onMelodyHold(params, active, key) {
       melodyVoice.setActive(params, active);
+      overlay?.setKeyActive(key, active);
     },
-    onRiserPress(variant) {
+    onRiserPress(variant, key) {
       riserVoice.trigger(variant);
+      overlay?.flashKey(key);
     },
   },
   () => {
     void unlockAudio(startFoundation);
+    openingPrompt?.setAttribute("hidden", "");
   },
 );
