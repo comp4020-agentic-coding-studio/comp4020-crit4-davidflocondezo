@@ -64,3 +64,12 @@ here and wire it into `check`. Growing this file is the work.
   `import.meta.env.BASE_URL`-safe joins (strip the leading/trailing slash
   before concatenating), never as a root-absolute path --- root-absolute works
   on localhost and 404s under the Pages base path.
+- The 5 voice categories (`fx`, `stab`, `atmosphere`, `melody`, `riser` in
+  `src/scripts/audio/voices/*.ts`) each build their own oscillator/noise chain
+  independently --- some read shared pitch state (`scale.ts`), others (`fx.ts`,
+  `riser.ts`) use their own hardcoded frequency tables instead. A change meant
+  to apply "to every voice" (e.g. the per-session random transposition) has to
+  be verified against every voice file, not just tested on one key and assumed
+  to propagate --- checking only a `stab` or `melody` key would have missed
+  that `fx`/`riser` never touched `scale.ts` at all. When a fix is supposed to
+  be instrument-wide, press one key per category before calling it done.
