@@ -6,8 +6,16 @@ import type { MelodyParams } from "../../input/keymap";
 const REGISTER_BAND_BELOW = 4;
 const REGISTER_BAND_ABOVE = 10;
 
+// A tap shorter than one tick would otherwise cut a line off after zero or
+// one note. Guaranteeing this many notes before a release actually stops
+// the line means even the quickest tap still reads as a short musical run,
+// while a genuine hold keeps sustaining exactly as before.
+const MIN_NOTES_ON_RELEASE = 4;
+
 interface ActiveLine {
   currentDegree: number;
+  noteCount: number;
+  releasing: boolean;
   unsubscribe: () => void;
 }
 
@@ -58,9 +66,21 @@ export function createMelodyVoice(
 
   return {
     setActive(params: MelodyParams, active: boolean): void {
+      const id = params.registerOffset;
       if (active) {
-        if (lines.has(params.registerOffset)) return;
-        const line: ActiveLine = { currentDegree: params.registerOffset, unsubscribe: () => {} };
+        const existing = lines.get(id);
+        if (existing) {
+          // Re-pressed while its post-release tail was still playing out --
+          // resume sustaining instead of letting it stop on schedule.
+          existing.releasing = false;
+          return;
+        }
+        const line: ActiveLine = {
+          currentDegree: id,
+          noteCount: 0,
+          releasing: false,
+          unsubscribe: () => {},
+        };
         line.unsubscribe = scheduler.onTick((tickIndex, time) => {
           if (tickIndex % params.tickSubdivision !== 0) return;
           const next = randomWalkStep(line.currentDegree);
@@ -69,13 +89,22 @@ export function createMelodyVoice(
             params.registerOffset + REGISTER_BAND_ABOVE,
           );
           triggerNote(line.currentDegree, time);
+          line.noteCount += 1;
+          if (line.releasing && line.noteCount >= MIN_NOTES_ON_RELEASE) {
+            line.unsubscribe();
+            lines.delete(id);
+          }
         });
-        lines.set(params.registerOffset, line);
+        lines.set(id, line);
       } else {
-        const line = lines.get(params.registerOffset);
+        const line = lines.get(id);
         if (!line) return;
-        line.unsubscribe();
-        lines.delete(params.registerOffset);
+        if (line.noteCount >= MIN_NOTES_ON_RELEASE) {
+          line.unsubscribe();
+          lines.delete(id);
+        } else {
+          line.releasing = true;
+        }
       }
     },
   };
