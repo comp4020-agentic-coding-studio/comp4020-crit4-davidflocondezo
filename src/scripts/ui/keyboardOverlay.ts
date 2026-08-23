@@ -28,16 +28,19 @@ export interface KeyboardOverlay {
  * play this uninstructed if they can see the instrument's shape first.
  */
 export function renderKeyboardOverlay(container: HTMLElement): KeyboardOverlay {
+  // Derived from the container, not the bare global -- keeps this testable
+  // via `new JSDOM()` under vitest's node environment.
+  const doc = container.ownerDocument;
   const keymapByKey = new Map(KEYMAP.map((def) => [def.key, def]));
   const keyElements = new Map<string, HTMLElement>();
 
   for (const row of ROWS) {
-    const rowEl = document.createElement("div");
+    const rowEl = doc.createElement("div");
     rowEl.className = "keyboard-overlay__row";
     for (const key of row) {
       const def = keymapByKey.get(key);
       if (!def) continue;
-      const keyEl = document.createElement("div");
+      const keyEl = doc.createElement("div");
       keyEl.className = `keyboard-overlay__key keyboard-overlay__key--${def.category}`;
       keyEl.textContent = key.toUpperCase();
       keyEl.setAttribute("role", "img");
@@ -53,7 +56,7 @@ export function renderKeyboardOverlay(container: HTMLElement): KeyboardOverlay {
       const el = keyElements.get(key.toLowerCase());
       if (!el) return;
       el.classList.add("keyboard-overlay__key--active");
-      window.setTimeout(() => {
+      el.ownerDocument.defaultView?.setTimeout(() => {
         el.classList.remove("keyboard-overlay__key--active");
       }, FLASH_DURATION_MS);
     },
