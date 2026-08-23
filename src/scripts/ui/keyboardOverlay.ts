@@ -9,9 +9,17 @@ const CATEGORY_LABELS: Record<KeyCategory, string> = {
   riser: "Riser",
 };
 
-// Mirrors the physical keyboard's own row shapes, which happen to line up
-// exactly with the five categories (10 + 10 + 9 + 7 = 36).
-const ROWS: readonly string[] = ["1234567890", "qwertyuiop", "asdfghjkl", "zxcvbnm"];
+// The bottom physical row mixes two categories (zxcvb = melody, nm = riser),
+// so sections are grouped by category rather than by physical row -- each
+// gets its own heading and divider, making the boundary a stranger actually
+// needs to see (e.g. "where does melody end and riser begin") explicit.
+const SECTIONS: ReadonlyArray<{ category: KeyCategory; keys: string }> = [
+  { category: "fx", keys: "1234567890" },
+  { category: "stab", keys: "qwertyuiop" },
+  { category: "atmosphere", keys: "asdfghjkl" },
+  { category: "melody", keys: "zxcvb" },
+  { category: "riser", keys: "nm" },
+];
 
 const FLASH_DURATION_MS = 150;
 
@@ -34,10 +42,24 @@ export function renderKeyboardOverlay(container: HTMLElement): KeyboardOverlay {
   const keymapByKey = new Map(KEYMAP.map((def) => [def.key, def]));
   const keyElements = new Map<string, HTMLElement>();
 
-  for (const row of ROWS) {
+  for (const section of SECTIONS) {
+    const sectionEl = doc.createElement("div");
+    sectionEl.className = `keyboard-overlay__section keyboard-overlay__section--${section.category}`;
+
+    const heading = doc.createElement("div");
+    heading.className = "keyboard-overlay__section-heading";
+    const label = doc.createElement("span");
+    label.className = "keyboard-overlay__section-label";
+    label.textContent = CATEGORY_LABELS[section.category];
+    const divider = doc.createElement("span");
+    divider.className = "keyboard-overlay__section-divider";
+    divider.setAttribute("aria-hidden", "true");
+    heading.appendChild(label);
+    heading.appendChild(divider);
+
     const rowEl = doc.createElement("div");
     rowEl.className = "keyboard-overlay__row";
-    for (const key of row) {
+    for (const key of section.keys) {
       const def = keymapByKey.get(key);
       if (!def) continue;
       const keyEl = doc.createElement("div");
@@ -48,7 +70,10 @@ export function renderKeyboardOverlay(container: HTMLElement): KeyboardOverlay {
       rowEl.appendChild(keyEl);
       keyElements.set(key, keyEl);
     }
-    container.appendChild(rowEl);
+
+    sectionEl.appendChild(heading);
+    sectionEl.appendChild(rowEl);
+    container.appendChild(sectionEl);
   }
 
   return {

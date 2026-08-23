@@ -29,9 +29,52 @@ a {
 .keyboard-overlay {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 1rem;
   margin-top: 1.5rem;
   user-select: none;
+}
+
+.keyboard-overlay__section-heading {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 0.4rem;
+}
+
+.keyboard-overlay__section-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--section-color, #f2f2f7);
+  white-space: nowrap;
+}
+
+.keyboard-overlay__section-divider {
+  flex: 1;
+  height: 1px;
+  background: var(--section-color, #2a2a38);
+  opacity: 0.5;
+}
+
+.keyboard-overlay__section--fx {
+  --section-color: #ff6b6b;
+}
+
+.keyboard-overlay__section--stab {
+  --section-color: #4d9dff;
+}
+
+.keyboard-overlay__section--atmosphere {
+  --section-color: #b28dff;
+}
+
+.keyboard-overlay__section--melody {
+  --section-color: #4de0a0;
+}
+
+.keyboard-overlay__section--riser {
+  --section-color: #ffd24d;
 }
 
 .keyboard-overlay__row {
@@ -40,11 +83,11 @@ a {
 }
 
 .keyboard-overlay__key {
-  flex: 1;
+  flex: 0 0 auto;
   display: flex;
   align-items: center;
   justify-content: center;
-  min-width: 2.25rem;
+  width: 2.75rem;
   aspect-ratio: 1;
   border-radius: 0.4rem;
   font-weight: 700;
