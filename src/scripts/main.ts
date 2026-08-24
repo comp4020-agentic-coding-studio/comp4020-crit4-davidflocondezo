@@ -9,6 +9,7 @@ import { createRiserVoice } from "./audio/voices/riser";
 import { createStabVoice } from "./audio/voices/stab";
 import { createSpaceBus } from "./audio/space";
 import { createSidechainBus } from "./audio/sidechain";
+import { createSaturationBus } from "./audio/saturation";
 import { attachKeyboard } from "./input/keyboard";
 import { renderKeyboardOverlay } from "./ui/keyboardOverlay";
 
@@ -24,6 +25,13 @@ let foundationStarted = false;
 // short for ducking to buy anything.
 const sidechain = createSidechainBus(audioContext, masterGain);
 
+// Melody (the lead) and stab (chords/plucks) are the two voices meant to cut
+// through the mix, so they route through this waveshaper-distortion bus for
+// harmonic density and aggression. Atmosphere and fx bypass it on purpose --
+// distorting everything erases the contrast that makes the mix read as
+// massive rather than a wall of fizz.
+const saturation = createSaturationBus(audioContext, sidechain.input);
+
 function startFoundation(): void {
   if (foundationStarted) return;
   foundationStarted = true;
@@ -33,10 +41,10 @@ function startFoundation(): void {
 
 const filterMacro = createFilterMacro();
 const spaceBus = createSpaceBus(audioContext, sidechain.input);
-const stabVoice = createStabVoice(audioContext, sidechain.input, scheduler, filterMacro, spaceBus);
+const stabVoice = createStabVoice(audioContext, saturation.input, scheduler, filterMacro, spaceBus);
 const fxVoice = createFxVoice(audioContext, masterGain, scheduler, filterMacro);
 const atmosphereVoice = createAtmosphereVoice(audioContext, sidechain.input, scheduler, filterMacro, spaceBus);
-const melodyVoice = createMelodyVoice(audioContext, sidechain.input, scheduler, filterMacro, spaceBus);
+const melodyVoice = createMelodyVoice(audioContext, saturation.input, scheduler, filterMacro, spaceBus);
 const riserVoice = createRiserVoice(audioContext, masterGain, scheduler);
 
 attachKeyboard(
