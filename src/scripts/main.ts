@@ -10,6 +10,7 @@ import { createStabVoice } from "./audio/voices/stab";
 import { createSpaceBus } from "./audio/space";
 import { createSidechainBus } from "./audio/sidechain";
 import { createSaturationBus } from "./audio/saturation";
+import { createMultibandBus } from "./audio/multiband";
 import { attachKeyboard } from "./input/keyboard";
 import { renderKeyboardOverlay } from "./ui/keyboardOverlay";
 
@@ -19,11 +20,18 @@ const overlay = overlayContainer ? renderKeyboardOverlay(overlayContainer) : nul
 
 let foundationStarted = false;
 
+// True 3-band OTT-style multiband compressor for the synth bus: an
+// independent crossover + compressor + makeup gain per band, so a loud
+// kick/bass transient can't duck the highs the way a single fullband
+// compressor would. Sits upstream of the master glue compressor + limiter
+// in context.ts, which remain the final safety-net stage.
+const multiband = createMultibandBus(audioContext, masterGain);
+
 // Bass and the chord/lead voices (plus their reverb sends) route through
 // this bus so the kick can pump them on every beat. Riser and fx bypass it
 // on purpose: a riser is an unbroken swell, and one-shot fx hits are too
 // short for ducking to buy anything.
-const sidechain = createSidechainBus(audioContext, masterGain);
+const sidechain = createSidechainBus(audioContext, multiband.input);
 
 // Melody (the lead) and stab (chords/plucks) are the two voices meant to cut
 // through the mix, so they route through this waveshaper-distortion bus for

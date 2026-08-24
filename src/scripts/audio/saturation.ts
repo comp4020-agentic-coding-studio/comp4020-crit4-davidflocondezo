@@ -22,6 +22,14 @@ const DRIVE_GAIN = 2.5; // pushes the signal harder into the curve's nonlinearit
 const SATURATION_AMOUNT = 50; // curve aggressiveness -- heavy, per the brief
 const OUTPUT_TRIM = 0.55; // saturation adds perceived loudness; trims back toward the existing mix balance
 
+// Carves the sub-150Hz pocket out of melody/stab so the kick's tail (which
+// sweeps 140Hz down to 38Hz, see kick.ts) has that space to itself -- placed
+// before the shaper so distortion never generates harmonics from a
+// fundamental that's about to be filtered out anyway. Bass lives an octave
+// or more below this (~44-78Hz, see bass.ts) on a separate bus, so it's
+// unaffected; atmosphere stays on its own clean bus entirely, also untouched.
+const HIGHPASS_HZ = 180;
+
 /**
  * Shared distortion bus for the two voices meant to cut through the mix
  * (melody's lead, stab's chords/plucks) -- atmosphere and fx connect straight
@@ -32,6 +40,10 @@ export function createSaturationBus(ctx: AudioContext, destination: AudioNode): 
   const input = ctx.createGain();
   input.gain.value = DRIVE_GAIN;
 
+  const highpass = ctx.createBiquadFilter();
+  highpass.type = "highpass";
+  highpass.frequency.value = HIGHPASS_HZ;
+
   const shaper = ctx.createWaveShaper();
   shaper.curve = makeSaturationCurve(SATURATION_AMOUNT);
   shaper.oversample = "4x"; // suppresses clipping-induced aliasing/harshness
@@ -39,7 +51,8 @@ export function createSaturationBus(ctx: AudioContext, destination: AudioNode): 
   const outputTrim = ctx.createGain();
   outputTrim.gain.value = OUTPUT_TRIM;
 
-  input.connect(shaper);
+  input.connect(highpass);
+  highpass.connect(shaper);
   shaper.connect(outputTrim);
   outputTrim.connect(destination);
 
