@@ -21,12 +21,22 @@ const SECTIONS: ReadonlyArray<{ category: KeyCategory; keys: string }> = [
   { category: "riser", keys: "nm" },
 ];
 
+// Not part of KEYMAP (arrows/space aren't musical keys, they're transport
+// controls), so they get their own section rendered separately below, but
+// register into the same keyElements map so flashKey/setKeyActive work on
+// them exactly like any musical key -- lookup is by event.key.toLowerCase().
+const TRANSPORT_KEYS: ReadonlyArray<{ key: string; label: string; ariaLabel: string; wide?: boolean }> = [
+  { key: "ArrowDown", label: "↓", ariaLabel: "Down arrow: tempo down" },
+  { key: "ArrowUp", label: "↑", ariaLabel: "Up arrow: tempo up" },
+  { key: " ", label: "Space", ariaLabel: "Space: drop the kick and bass", wide: true },
+];
+
 const FLASH_DURATION_MS = 150;
 
 export interface KeyboardOverlay {
-  /** Brief highlight for one-shot categories (fx, stab, riser). */
+  /** Brief highlight for one-shot categories (fx, stab, riser, tempo nudges). */
   flashKey(key: string): void;
-  /** Persistent highlight for toggle/hold categories (atmosphere, melody). */
+  /** Persistent highlight for toggle/hold categories (atmosphere, melody, drop). */
   setKeyActive(key: string, active: boolean): void;
 }
 
@@ -41,6 +51,34 @@ export function renderKeyboardOverlay(container: HTMLElement): KeyboardOverlay {
   const doc = container.ownerDocument;
   const keymapByKey = new Map(KEYMAP.map((def) => [def.key, def]));
   const keyElements = new Map<string, HTMLElement>();
+
+  const transportSection = doc.createElement("div");
+  transportSection.className = "keyboard-overlay__section keyboard-overlay__section--transport";
+  const transportHeading = doc.createElement("div");
+  transportHeading.className = "keyboard-overlay__section-heading";
+  const transportLabel = doc.createElement("span");
+  transportLabel.className = "keyboard-overlay__section-label";
+  transportLabel.textContent = "Transport";
+  const transportDivider = doc.createElement("span");
+  transportDivider.className = "keyboard-overlay__section-divider";
+  transportDivider.setAttribute("aria-hidden", "true");
+  transportHeading.appendChild(transportLabel);
+  transportHeading.appendChild(transportDivider);
+
+  const transportRow = doc.createElement("div");
+  transportRow.className = "keyboard-overlay__row";
+  for (const def of TRANSPORT_KEYS) {
+    const keyEl = doc.createElement("div");
+    keyEl.className = `keyboard-overlay__key keyboard-overlay__key--transport${def.wide ? " keyboard-overlay__key--wide" : ""}`;
+    keyEl.textContent = def.label;
+    keyEl.setAttribute("role", "img");
+    keyEl.setAttribute("aria-label", def.ariaLabel);
+    transportRow.appendChild(keyEl);
+    keyElements.set(def.key.toLowerCase(), keyEl);
+  }
+  transportSection.appendChild(transportHeading);
+  transportSection.appendChild(transportRow);
+  container.appendChild(transportSection);
 
   for (const section of SECTIONS) {
     const sectionEl = doc.createElement("div");

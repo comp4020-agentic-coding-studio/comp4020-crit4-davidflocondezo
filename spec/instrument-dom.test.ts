@@ -31,9 +31,17 @@ describe("keyboard overlay: the rendered contract", () => {
   if (!container) throw new Error("test fixture missing #keyboard-overlay");
   renderKeyboardOverlay(container);
   const keyElements = [...container.querySelectorAll(".keyboard-overlay__key")];
+  const CATEGORIES = ["fx", "stab", "atmosphere", "melody", "riser"];
+  // Arrow/space transport controls render alongside the 36 musical keys but
+  // aren't part of the KEYMAP contract -- the 36-key assertions below scope
+  // to the 5 musical categories so a transport key's own class doesn't count
+  // against, or toward, that invariant.
+  const musicalKeyElements = keyElements.filter((el) =>
+    CATEGORIES.some((category) => el.classList.contains(`keyboard-overlay__key--${category}`)),
+  );
 
   it("renders all 36 keys", () => {
-    expect(keyElements.length).toBe(36);
+    expect(musicalKeyElements.length).toBe(36);
   });
 
   it("gives every key a visible label and a discoverable accessible name", () => {
@@ -44,17 +52,24 @@ describe("keyboard overlay: the rendered contract", () => {
   });
 
   it("labels one key per physical key, with no duplicates", () => {
-    const labels = keyElements.map((el) => el.textContent?.trim());
+    const labels = musicalKeyElements.map((el) => el.textContent?.trim());
     expect(new Set(labels).size).toBe(36);
   });
 
   it("color-codes every key by its category", () => {
-    const categories = ["fx", "stab", "atmosphere", "melody", "riser"];
-    for (const el of keyElements) {
-      const hasCategoryClass = categories.some((category) =>
+    for (const el of musicalKeyElements) {
+      const hasCategoryClass = CATEGORIES.some((category) =>
         el.classList.contains(`keyboard-overlay__key--${category}`),
       );
       expect(hasCategoryClass, `${el.textContent} is missing a category class`).toBe(true);
+    }
+  });
+
+  it("renders the tempo and drop transport controls with a discoverable accessible name", () => {
+    const transportElements = keyElements.filter((el) => el.classList.contains("keyboard-overlay__key--transport"));
+    expect(transportElements.length).toBe(3);
+    for (const el of transportElements) {
+      expect(el.getAttribute("aria-label")?.trim()).toBeTruthy();
     }
   });
 });

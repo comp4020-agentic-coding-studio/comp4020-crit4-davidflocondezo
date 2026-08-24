@@ -1,11 +1,9 @@
-import { BPM } from "./scheduler";
-
-// Dotted-eighth delay at the instrument's fixed 150 BPM: long enough to fill
-// the gaps between stab hits and melody notes without smearing into the next
-// downbeat, and rhythmically locked to the grid so the echoes reinforce the
-// beat instead of fighting it.
-const QUARTER_NOTE_SECONDS = 60 / BPM;
-const DELAY_TIME_SECONDS = QUARTER_NOTE_SECONDS * 0.75; // dotted eighth = 3/4 of a quarter note
+// Dotted-eighth delay: long enough to fill the gaps between stab hits and
+// melody notes without smearing into the next downbeat, and rhythmically
+// locked to the tempo grid so the echoes reinforce the beat instead of
+// fighting it. Recomputed from live BPM (see setBpm below) rather than
+// baked in once, so it stays locked to the grid if tempo changes.
+const DOTTED_EIGHTH_FRACTION = 0.75; // 3/4 of a quarter note
 const DELAY_FEEDBACK = 0.38;
 const DELAY_FEEDBACK_LOWPASS_HZ = 3500; // each repeat loses a bit more top end, like a real echo darkening as it decays
 const DELAY_WET_GAIN = 0.5;
@@ -17,6 +15,8 @@ const REVERB_WET_GAIN = 0.45;
 export interface SpaceBus {
   /** Voices connect a (reduced-level) send here to add echo/reverb ambience. */
   input: GainNode;
+  /** Re-syncs the echo's delay time to a new tempo, ramped to avoid a click. */
+  setBpm(bpm: number): void;
 }
 
 /**
@@ -45,11 +45,15 @@ function createReverbImpulse(ctx: AudioContext): AudioBuffer {
  * connect a scaled-down copy of their own gain envelope here, in parallel
  * with (not instead of) their existing dry connection to the master bus.
  */
-export function createSpaceBus(ctx: AudioContext, destination: AudioNode): SpaceBus {
+export function createSpaceBus(
+  ctx: AudioContext,
+  destination: AudioNode,
+  getBpm: () => number,
+): SpaceBus {
   const input = ctx.createGain();
 
   const delay = ctx.createDelay(1);
-  delay.delayTime.value = DELAY_TIME_SECONDS;
+  delay.delayTime.value = (60 / getBpm()) * DOTTED_EIGHTH_FRACTION;
   const feedbackFilter = ctx.createBiquadFilter();
   feedbackFilter.type = "lowpass";
   feedbackFilter.frequency.value = DELAY_FEEDBACK_LOWPASS_HZ;
@@ -74,5 +78,10 @@ export function createSpaceBus(ctx: AudioContext, destination: AudioNode): Space
   convolver.connect(reverbWet);
   reverbWet.connect(destination);
 
-  return { input };
+  return {
+    input,
+    setBpm(bpm: number): void {
+      delay.delayTime.linearRampToValueAtTime((60 / bpm) * DOTTED_EIGHTH_FRACTION, ctx.currentTime + 0.05);
+    },
+  };
 }

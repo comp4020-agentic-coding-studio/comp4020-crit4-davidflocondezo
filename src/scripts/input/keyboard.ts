@@ -7,6 +7,8 @@ export interface KeyboardHandlers {
   onAtmosphereToggle?(variant: number, active: boolean, key: string): void;
   onMelodyHold?(params: MelodyParams, active: boolean, key: string): void;
   onRiserPress?(variant: number, key: string): void;
+  onTempoNudge?(direction: 1 | -1, key: string): void;
+  onDropToggle?(): void;
 }
 
 /**
@@ -20,6 +22,18 @@ export function attachKeyboard(handlers: KeyboardHandlers, onFirstKey: () => voi
   let firstKeySeen = false;
 
   function handleKeydown(event: KeyboardEvent): void {
+    if (event.key === "ArrowUp" || event.key === "ArrowDown") {
+      if (event.repeat) return; // deliberate per-press nudge, not a held ramp
+      event.preventDefault(); // stop the page from scrolling
+      handlers.onTempoNudge?.(event.key === "ArrowUp" ? 1 : -1, event.key);
+      return;
+    }
+    if (event.key === " ") {
+      if (event.repeat) return; // one toggle per press, not a held ramp
+      event.preventDefault(); // stop the page from scrolling / activating a focused link
+      handlers.onDropToggle?.();
+      return;
+    }
     const def = lookupKey(event.key);
     if (!def) return;
     if (!firstKeySeen) {

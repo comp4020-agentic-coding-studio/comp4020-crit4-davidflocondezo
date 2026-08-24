@@ -26,6 +26,18 @@ a {
   display: none;
 }
 
+.tempo-readout {
+  font-size: 0.85rem;
+  color: #9a9ab0;
+  margin-top: 0.25rem;
+}
+
+.drop-readout {
+  font-size: 0.85rem;
+  color: #9a9ab0;
+  margin-top: 0.25rem;
+}
+
 .keyboard-overlay {
   display: flex;
   flex-direction: column;
@@ -77,6 +89,10 @@ a {
   --section-color: #ffd24d;
 }
 
+.keyboard-overlay__section--transport {
+  --section-color: #c7c7d6;
+}
+
 .keyboard-overlay__row {
   display: flex;
   gap: 0.4rem;
@@ -121,4 +137,13 @@ a {
 
 .keyboard-overlay__key--riser {
   --key-color: #ffd24d;
+}
+
+.keyboard-overlay__key--transport {
+  --key-color: #c7c7d6;
+}
+
+.keyboard-overlay__key--wide {
+  width: auto;
+  padding: 0 1.4rem;
 }
