@@ -39,7 +39,20 @@ function steppedTowardCenter(current: number, center: number): number {
 // that identity as well as multiply the oscillator count further.
 const UNISON_LADDER = [3, 1];
 const UNISON_DETUNE_CENTS = 20;
-const PEAK_GAIN = 0.35 * 1.2; // calibrated for a single oscillator, scaled by 1/sqrt(voiceCount) below -- *1.2 is a slight volume bump
+const PEAK_GAIN = 0.35 * 1.2 * 1.15 * 1.15; // calibrated for a single oscillator, scaled by 1/sqrt(voiceCount) below -- three rounds of volume bumps (1.2, 1.15, 1.15) on top of the original calibration
+
+// A pitched, filter-swept "pluck" layered under the sine unison's attack --
+// a square oscillator through its own lowpass, cutoff sweeping bright-to-dark
+// in ~50ms, gives the note a percussive "snap" the smeary supersaw attack
+// doesn't have on its own. An embellishment, not the note itself, so it's the
+// one thing here allowed to be skipped entirely under voice-budget pressure.
+const PLUCK_LADDER = [1, 0];
+const PLUCK_FILTER_START_HZ = 7000;
+const PLUCK_FILTER_END_HZ = 900;
+const PLUCK_FILTER_SWEEP_SECONDS = 0.05;
+const PLUCK_FILTER_Q = 8;
+const PLUCK_PEAK_GAIN = 0.4;
+const PLUCK_DECAY_SECONDS = 0.12;
 
 // Melody benefits most from the stadium send of any voice here: the rests
 // added above leave real gaps in the line, and the echo/reverb tail is what
@@ -107,6 +120,25 @@ export function createMelodyVoice(
     gain.gain.exponentialRampToValueAtTime(0.001, time + 0.28);
 
     handle?.stop(time + 0.3);
+
+    const pluckVoiceCount = reserveVoices(PLUCK_LADDER);
+    if (pluckVoiceCount > 0) {
+      const pluckFilter = ctx.createBiquadFilter();
+      pluckFilter.type = "lowpass";
+      pluckFilter.Q.value = PLUCK_FILTER_Q;
+      pluckFilter.frequency.setValueAtTime(PLUCK_FILTER_START_HZ, time);
+      pluckFilter.frequency.exponentialRampToValueAtTime(PLUCK_FILTER_END_HZ, time + PLUCK_FILTER_SWEEP_SECONDS);
+
+      const pluckGain = ctx.createGain();
+      pluckGain.gain.setValueAtTime(PLUCK_PEAK_GAIN, time);
+      pluckGain.gain.exponentialRampToValueAtTime(0.001, time + PLUCK_DECAY_SECONDS);
+
+      pluckFilter.connect(pluckGain);
+      pluckGain.connect(destination);
+
+      const pluckHandle = createUnisonStack(ctx, pluckFilter, freq, time, "square", pluckVoiceCount, 0);
+      pluckHandle?.stop(time + 0.3);
+    }
   }
 
   return {
