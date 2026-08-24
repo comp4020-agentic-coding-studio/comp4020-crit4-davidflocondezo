@@ -6,8 +6,15 @@ import { TICKS_PER_BEAT } from "../scheduler";
  * quarter note, forever). Variation comes only from small per-hit jitter on
  * the pitch envelope and decay, so it never sounds like one looped sample.
  */
-export function createKickVoice(ctx: AudioContext, destination: AudioNode, scheduler: Scheduler): () => void {
+export function createKickVoice(
+  ctx: AudioContext,
+  destination: AudioNode,
+  scheduler: Scheduler,
+  duck: (time: number) => void,
+): () => void {
   function triggerAt(time: number): void {
+    duck(time);
+
     const startFreqJitter = 140 + Math.random() * 20; // 140-160 Hz
     const decayJitter = 0.28 + Math.random() * 0.14; // 0.28-0.42s
 

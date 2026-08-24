@@ -14,8 +14,20 @@ masterCompressor.ratio.value = 6;
 masterCompressor.attack.value = 0.003;
 masterCompressor.release.value = 0.25;
 
+// Brickwall limiter: sits after the glue compressor above and catches any
+// remaining peaks with a near-instant attack and a hard ratio, the way a
+// mastered track's final limiting stage does -- lets the mix sit at a
+// consistently loud, dense level without audibly clipping.
+const masterLimiter = audioContext.createDynamicsCompressor();
+masterLimiter.threshold.value = -1;
+masterLimiter.knee.value = 0;
+masterLimiter.ratio.value = 20;
+masterLimiter.attack.value = 0.001;
+masterLimiter.release.value = 0.1;
+
 masterGain.connect(masterCompressor);
-masterCompressor.connect(audioContext.destination);
+masterCompressor.connect(masterLimiter);
+masterLimiter.connect(audioContext.destination);
 
 export const scheduler = new Scheduler(audioContext);
 

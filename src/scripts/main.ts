@@ -8,6 +8,7 @@ import { createMelodyVoice } from "./audio/voices/melody";
 import { createRiserVoice } from "./audio/voices/riser";
 import { createStabVoice } from "./audio/voices/stab";
 import { createSpaceBus } from "./audio/space";
+import { createSidechainBus } from "./audio/sidechain";
 import { attachKeyboard } from "./input/keyboard";
 import { renderKeyboardOverlay } from "./ui/keyboardOverlay";
 
@@ -17,19 +18,25 @@ const overlay = overlayContainer ? renderKeyboardOverlay(overlayContainer) : nul
 
 let foundationStarted = false;
 
+// Bass and the chord/lead voices (plus their reverb sends) route through
+// this bus so the kick can pump them on every beat. Riser and fx bypass it
+// on purpose: a riser is an unbroken swell, and one-shot fx hits are too
+// short for ducking to buy anything.
+const sidechain = createSidechainBus(audioContext, masterGain);
+
 function startFoundation(): void {
   if (foundationStarted) return;
   foundationStarted = true;
-  createKickVoice(audioContext, masterGain, scheduler);
-  createBassVoice(audioContext, masterGain, scheduler);
+  createKickVoice(audioContext, masterGain, scheduler, sidechain.duck);
+  createBassVoice(audioContext, sidechain.input, scheduler);
 }
 
 const filterMacro = createFilterMacro();
-const spaceBus = createSpaceBus(audioContext, masterGain);
-const stabVoice = createStabVoice(audioContext, masterGain, scheduler, filterMacro, spaceBus);
+const spaceBus = createSpaceBus(audioContext, sidechain.input);
+const stabVoice = createStabVoice(audioContext, sidechain.input, scheduler, filterMacro, spaceBus);
 const fxVoice = createFxVoice(audioContext, masterGain, scheduler, filterMacro);
-const atmosphereVoice = createAtmosphereVoice(audioContext, masterGain, scheduler, filterMacro, spaceBus);
-const melodyVoice = createMelodyVoice(audioContext, masterGain, scheduler, filterMacro, spaceBus);
+const atmosphereVoice = createAtmosphereVoice(audioContext, sidechain.input, scheduler, filterMacro, spaceBus);
+const melodyVoice = createMelodyVoice(audioContext, sidechain.input, scheduler, filterMacro, spaceBus);
 const riserVoice = createRiserVoice(audioContext, masterGain, scheduler);
 
 attachKeyboard(

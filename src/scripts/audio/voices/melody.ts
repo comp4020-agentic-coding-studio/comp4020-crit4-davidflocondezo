@@ -39,7 +39,7 @@ function steppedTowardCenter(current: number, center: number): number {
 // that identity as well as multiply the oscillator count further.
 const UNISON_LADDER = [3, 1];
 const UNISON_DETUNE_CENTS = 20;
-const PEAK_GAIN = 0.35; // calibrated for a single oscillator, scaled by 1/sqrt(voiceCount) below
+const PEAK_GAIN = 0.35 * 1.2; // calibrated for a single oscillator, scaled by 1/sqrt(voiceCount) below -- *1.2 is a slight volume bump
 
 // Melody benefits most from the stadium send of any voice here: the rests
 // added above leave real gaps in the line, and the echo/reverb tail is what
