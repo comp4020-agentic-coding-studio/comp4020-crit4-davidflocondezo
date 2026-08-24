@@ -24,12 +24,39 @@ function frequencyForDegree(degreeIndex: number): number {
   return F3_HZ * 2 ** (semitonesFromF3 / 12);
 }
 
+// How many scale-degree steps make up one octave in this table -- shared so
+// voices that add an "octave up" shimmer layer don't each hardcode 7.
+export const DEGREES_PER_OCTAVE = SEMITONE_OFFSETS.length;
+
 export const SCALE_DEGREE_COUNT = SEMITONE_OFFSETS.length * OCTAVES;
 
 export const SCALE_FREQUENCIES: readonly number[] = Array.from(
   { length: SCALE_DEGREE_COUNT },
   (_, i) => frequencyForDegree(i),
 );
+
+// Diatonic "stack of thirds": since the table is indexed by scale degree
+// (not chromatic semitone), the note two degrees up is always the diatonic
+// 3rd and four degrees up is always the diatonic 5th, so this comes out
+// major/minor/diminished correctly for wherever rootDegree sits, with no
+// chromatic interval math needed.
+export function triadDegrees(rootDegree: number): number[] {
+  return [0, 2, 4].map((step) => Math.min(rootDegree + step, SCALE_FREQUENCIES.length - 1));
+}
+
+/**
+ * Snaps an arbitrary Hz value onto whichever scale tone it's closest to.
+ * For voices that pick their frequencies from a fixed design palette rather
+ * than a scale degree (FX's zap/reverse one-shots) -- since `SCALE_FREQUENCIES`
+ * already bakes in this session's random transposition, this locks a
+ * one-shot onto a note that's actually in key instead of an arbitrary Hz
+ * value that only coincidentally lined up before the session shifted.
+ */
+export function nearestScaleFrequency(freq: number): number {
+  return SCALE_FREQUENCIES.reduce((closest, candidate) =>
+    Math.abs(candidate - freq) < Math.abs(closest - freq) ? candidate : closest,
+  );
+}
 
 export function degreeName(degreeIndex: number): string {
   const octave = Math.floor(degreeIndex / SEMITONE_OFFSETS.length);

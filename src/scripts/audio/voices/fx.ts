@@ -1,7 +1,7 @@
 import type { Scheduler } from "../scheduler";
 import type { FilterMacro } from "../filterMacro";
 import { createNoiseBuffer } from "../noise";
-import { SESSION_PITCH_RATIO } from "../scale";
+import { SESSION_PITCH_RATIO, nearestScaleFrequency } from "../scale";
 
 // Reference cutoff the macro's brightness scale is centered on -- 1.0 means
 // "macro at its neutral midpoint," so FX brighten/darken together with the
@@ -113,10 +113,19 @@ export function createFxVoice(
 
   function triggerAt(variant: number, time: number): void {
     const descriptor = FX_DESCRIPTORS[variant] ?? FX_DESCRIPTORS[0];
-    const freq = descriptor.freq * SESSION_PITCH_RATIO;
-    if (descriptor.kind === "impact") triggerImpact(freq, time);
-    else if (descriptor.kind === "zap") triggerZap(freq, time);
-    else triggerReverse(freq, time);
+    if (descriptor.kind === "impact") {
+      // Short, noisy transient -- no sustained pitch to clash with the
+      // harmony, so it only needs the session-wide shift, not scale-locking.
+      triggerImpact(descriptor.freq * SESSION_PITCH_RATIO, time);
+    } else if (descriptor.kind === "zap") {
+      // A pitched sweep is the most audibly tonal FX -- snap its start
+      // frequency onto this session's scale table so it lands in key
+      // instead of clashing with the now much more harmonically-present
+      // stab/atmosphere chords.
+      triggerZap(nearestScaleFrequency(descriptor.freq), time);
+    } else {
+      triggerReverse(nearestScaleFrequency(descriptor.freq), time);
+    }
   }
 
   return {

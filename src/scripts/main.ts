@@ -7,6 +7,7 @@ import { createKickVoice } from "./audio/voices/kick";
 import { createMelodyVoice } from "./audio/voices/melody";
 import { createRiserVoice } from "./audio/voices/riser";
 import { createStabVoice } from "./audio/voices/stab";
+import { createSpaceBus } from "./audio/space";
 import { attachKeyboard } from "./input/keyboard";
 import { renderKeyboardOverlay } from "./ui/keyboardOverlay";
 
@@ -24,10 +25,11 @@ function startFoundation(): void {
 }
 
 const filterMacro = createFilterMacro();
-const stabVoice = createStabVoice(audioContext, masterGain, scheduler, filterMacro);
+const spaceBus = createSpaceBus(audioContext, masterGain);
+const stabVoice = createStabVoice(audioContext, masterGain, scheduler, filterMacro, spaceBus);
 const fxVoice = createFxVoice(audioContext, masterGain, scheduler, filterMacro);
-const atmosphereVoice = createAtmosphereVoice(audioContext, masterGain, scheduler, filterMacro);
-const melodyVoice = createMelodyVoice(audioContext, masterGain, scheduler, filterMacro);
+const atmosphereVoice = createAtmosphereVoice(audioContext, masterGain, scheduler, filterMacro, spaceBus);
+const melodyVoice = createMelodyVoice(audioContext, masterGain, scheduler, filterMacro, spaceBus);
 const riserVoice = createRiserVoice(audioContext, masterGain, scheduler);
 
 attachKeyboard(
