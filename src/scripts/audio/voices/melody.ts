@@ -1,36 +1,15 @@
 import type { Scheduler } from "../scheduler";
+import { TICKS_PER_BAR } from "../scheduler";
 import type { FilterMacro } from "../filterMacro";
 import { SCALE_FREQUENCIES } from "../scale";
 import { createUnisonStack } from "../unison";
 import { reserveVoices } from "../voiceBudget";
 import type { SpaceBus } from "../space";
 import type { MelodyParams } from "../../input/keymap";
+import { MELODY_MOTIFS, type Motif } from "../patterns";
 
 const REGISTER_BAND_BELOW = 4;
 const REGISTER_BAND_ABOVE = 10;
-
-// A pure random walk retriggering on every subdivision reads as chattering
-// noise rather than a line: no silence to breathe, no sense of where it's
-// "going." These two fix that without touching bass's own walk (scale.ts's
-// randomWalkStep), which doesn't need either behavior.
-const REST_PROBABILITY = 0.2; // skip firing roughly 1 in 5 ticks
-const PULL_RANGE = REGISTER_BAND_ABOVE; // drift beyond this makes returning home near-certain
-
-/**
- * Same small-step-biased distribution as scale.ts's randomWalkStep, but
- * direction is weighted back toward `center` the further the line has
- * drifted, so a held line traces an arc around its home register instead of
- * wandering indefinitely.
- */
-function steppedTowardCenter(current: number, center: number): number {
-  const roll = Math.random();
-  const magnitude = roll < 0.7 ? 1 : roll < 0.9 ? 2 : Math.floor(Math.random() * 3) + 3;
-  const distance = current - center;
-  const pullChance = Math.min(Math.abs(distance) / PULL_RANGE, 0.85);
-  const movesTowardCenter = Math.random() < pullChance;
-  const goingUp = distance <= 0 ? movesTowardCenter : !movesTowardCenter;
-  return current + (goingUp ? magnitude : -magnitude);
-}
 
 // Thinner than stab/atmosphere's ladders -- melody retriggers fast and up to
 // five held keys each generate their own line, so it's the biggest risk to
@@ -92,6 +71,78 @@ export function createMelodyVoice(
 ): MelodyVoice {
   const lines = new Map<number, ActiveLine>();
 
+  // Each key draws one motif at random from the shared curated pool the
+  // first time it's ever held, then keeps it for the rest of the session --
+  // never cleared, so releasing and re-pressing the same key resumes the
+  // same riff rather than drawing a new one. Keyed by registerOffset, same
+  // identity `lines` already uses.
+  const assignedMotifs = new Map<number, Motif>();
+
+  // The most recent note played by any line, kept alive after that line's
+  // key is released (and even after its ActiveLine is deleted from `lines`
+  // entirely). This is what lets a bar-jump answer with a note when no
+  // melody key is currently held -- without it there'd be no pitch or
+  // register to jump from once `lines` goes empty. `anchorDegree` is the
+  // pitch as it actually last sounded from a real (key-held) play -- unlike
+  // `currentDegree`, jump nudges never move it -- so the echo always knows
+  // what "home" is regardless of how far it's since walked from it.
+  let lastNote: { registerOffset: number; currentDegree: number; anchorDegree: number } | null = null;
+  // True once an echoed jump has walked back through `anchorDegree` during
+  // the *current* held arrow press -- silences the rest of that hold's
+  // auto-repeat (see onBeatJumpStart's isNewPress in main.ts) so passing
+  // "home" doesn't turn into an unbounded run of notes in the new direction.
+  // Cleared on every fresh press and whenever a real line plays again.
+  let echoSilenced = false;
+
+  // A bar-jump can't fire tick listeners (see scheduler.ts's jumpBar), so it
+  // needs its own hook here too: nudge every currently-held line's pitch by
+  // one degree in the jump direction, mirroring bass's root-note walk. Unlike
+  // bass (which just waits for its own steady pulse to pick up the new
+  // root), melody plays the jumped-to note immediately -- a held line should
+  // audibly answer the press right away, the same instant the overlay key
+  // flashes, not silently wait for its own next scheduled tick.
+  //
+  // When no key is held, `lines` is empty and there's nothing to jump -- so
+  // fall back to nudging and replaying `lastNote` instead, echoing whichever
+  // line most recently sounded rather than staying silent. Once that echo
+  // walks back through `anchorDegree` -- i.e. it's caught back up to where
+  // the melody actually last was -- it plays that one arrival note and then
+  // goes quiet for the rest of this hold: past that point there's nothing
+  // real left to rewind or fast-forward into, so holding the arrow shouldn't
+  // keep spinning out new notes.
+  scheduler.onBarJump((direction, isNewPress) => {
+    const time = scheduler.nextQuantizedTime("16th");
+    if (lines.size > 0) {
+      for (const [registerOffset, line] of lines) {
+        const next = line.currentDegree + direction;
+        line.currentDegree = Math.min(
+          Math.max(next, registerOffset - REGISTER_BAND_BELOW),
+          registerOffset + REGISTER_BAND_ABOVE,
+        );
+        triggerNote(line.currentDegree, time);
+        lastNote = { registerOffset, currentDegree: line.currentDegree, anchorDegree: line.currentDegree };
+      }
+      echoSilenced = false;
+      return;
+    }
+
+    if (!lastNote) return;
+    if (isNewPress) echoSilenced = false;
+    if (echoSilenced) return;
+
+    const prevDistance = lastNote.currentDegree - lastNote.anchorDegree;
+    const proposed = Math.min(
+      Math.max(lastNote.currentDegree + direction, lastNote.registerOffset - REGISTER_BAND_BELOW),
+      lastNote.registerOffset + REGISTER_BAND_ABOVE,
+    );
+    const nextDistance = proposed - lastNote.anchorDegree;
+    const crossedHome = prevDistance !== 0 && (nextDistance === 0 || Math.sign(nextDistance) !== Math.sign(prevDistance));
+
+    lastNote.currentDegree = crossedHome ? lastNote.anchorDegree : proposed;
+    triggerNote(lastNote.currentDegree, time);
+    if (crossedHome) echoSilenced = true;
+  });
+
   function triggerNote(degree: number, time: number): void {
     const clamped = Math.min(Math.max(degree, 0), SCALE_FREQUENCIES.length - 1);
     const freq = SCALE_FREQUENCIES[clamped];
@@ -152,6 +203,11 @@ export function createMelodyVoice(
           existing.releasing = false;
           return;
         }
+        let motif = assignedMotifs.get(id);
+        if (!motif) {
+          motif = MELODY_MOTIFS[Math.floor(Math.random() * MELODY_MOTIFS.length)];
+          assignedMotifs.set(id, motif);
+        }
         const line: ActiveLine = {
           currentDegree: id,
           noteCount: 0,
@@ -160,13 +216,19 @@ export function createMelodyVoice(
         };
         line.unsubscribe = scheduler.onTick((tickIndex, time) => {
           if (tickIndex % params.tickSubdivision !== 0) return;
-          if (Math.random() < REST_PROBABILITY) return; // rest: hold the current pitch, don't sound it
-          const next = steppedTowardCenter(line.currentDegree, params.registerOffset);
+          const offset = motif[tickIndex % TICKS_PER_BAR];
+          if (offset === null) return; // rest: hold the current pitch, don't sound it
           line.currentDegree = Math.min(
-            Math.max(next, params.registerOffset - REGISTER_BAND_BELOW),
+            Math.max(params.registerOffset + offset, params.registerOffset - REGISTER_BAND_BELOW),
             params.registerOffset + REGISTER_BAND_ABOVE,
           );
           triggerNote(line.currentDegree, time);
+          lastNote = {
+            registerOffset: params.registerOffset,
+            currentDegree: line.currentDegree,
+            anchorDegree: line.currentDegree,
+          };
+          echoSilenced = false;
           line.noteCount += 1;
           if (line.releasing && line.noteCount >= MIN_NOTES_ON_RELEASE) {
             line.unsubscribe();

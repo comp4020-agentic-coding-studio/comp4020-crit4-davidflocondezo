@@ -26,8 +26,10 @@ const SECTIONS: ReadonlyArray<{ category: KeyCategory; keys: string }> = [
 // register into the same keyElements map so flashKey/setKeyActive work on
 // them exactly like any musical key -- lookup is by event.key.toLowerCase().
 const TRANSPORT_KEYS: ReadonlyArray<{ key: string; label: string; ariaLabel: string; wide?: boolean }> = [
+  { key: "ArrowLeft", label: "←", ariaLabel: "Left arrow: jump back one bar (hold to keep jumping)" },
   { key: "ArrowDown", label: "↓", ariaLabel: "Down arrow: tempo down" },
   { key: "ArrowUp", label: "↑", ariaLabel: "Up arrow: tempo up" },
+  { key: "ArrowRight", label: "→", ariaLabel: "Right arrow: jump forward one bar (hold to keep jumping)" },
   { key: " ", label: "Space", ariaLabel: "Space: drop the kick and bass", wide: true },
 ];
 

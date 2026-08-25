@@ -15,6 +15,11 @@ const LOOKAHEAD_INTERVAL_MS = 25;
 export type QuantizeUnit = "16th" | "beat" | "bar";
 
 type TickListener = (tickIndex: number, time: number) => void;
+// isNewPress distinguishes the initial keydown jump from the ones a held
+// arrow key auto-repeats every BEAT_JUMP_INTERVAL_MS (see main.ts) -- a
+// listener that wants to reset per-hold state (see melody.ts's echo) needs
+// to know when a fresh hold has begun versus the same one continuing.
+type BarJumpListener = (direction: 1 | -1, isNewPress: boolean) => void;
 
 export class Scheduler {
   private readonly ctx: AudioContext;
@@ -22,6 +27,7 @@ export class Scheduler {
   private tickIndex = 0;
   private timerId: number | undefined;
   private readonly listeners = new Set<TickListener>();
+  private readonly barJumpListeners = new Set<BarJumpListener>();
   private started = false;
   private bpm = DEFAULT_BPM;
 
@@ -37,6 +43,29 @@ export class Scheduler {
   adjustBpm(deltaBpm: number): number {
     this.bpm = Math.min(MAX_BPM, Math.max(MIN_BPM, this.bpm + deltaBpm));
     return this.bpm;
+  }
+
+  /**
+   * Beat-jump: relocate the pattern position by one bar without touching
+   * nextTickTime or tempo, so it's a CDJ-style relabeling of which tick is
+   * coming up next rather than a change in playback speed. Clamped at 0 --
+   * tickIndex feeds `% TICKS_PER_BEAT`/`% TICKS_PER_BAR` checks elsewhere,
+   * and JS's `%` doesn't wrap negative numbers the way those checks need.
+   *
+   * A jump by an exact multiple of TICKS_PER_BAR leaves every tick-modulo
+   * check (kick's beat, bass's pattern lookup) unchanged -- by design, so the
+   * rhythmic pocket never glitches -- so barJumpListeners exist as the hook
+   * for anything that should audibly react to a jump's direction instead
+   * (see bass.ts's root-note walk).
+   */
+  jumpBar(direction: 1 | -1, isNewPress: boolean): void {
+    this.tickIndex = Math.max(0, this.tickIndex + direction * TICKS_PER_BAR);
+    for (const listener of this.barJumpListeners) listener(direction, isNewPress);
+  }
+
+  onBarJump(listener: BarJumpListener): () => void {
+    this.barJumpListeners.add(listener);
+    return () => this.barJumpListeners.delete(listener);
   }
 
   start(): void {

@@ -58,6 +58,16 @@ export function createBassVoice(ctx: AudioContext, destination: AudioNode, sched
     osc.stop(time + 0.3);
   }
 
+  // A bar-jump relocates tickIndex by an exact multiple of TICKS_PER_BAR, so
+  // it can never desync the kick/bass pattern grid -- but that also means it
+  // can't advance this random walk either (it doesn't fire tick listeners).
+  // Give it its own directional nudge instead: forward steps the root up,
+  // back steps it down, so the arrows have an audible effect distinct from
+  // the walk's own undirected once-per-bar wander.
+  scheduler.onBarJump((direction) => {
+    rootDegree = Math.min(Math.max(rootDegree + direction, 0), BASS_MAX_DEGREE);
+  });
+
   return scheduler.onTick((tickIndex, time) => {
     if (tickIndex % TICKS_PER_BAR === 0) {
       rootDegree = Math.min(randomWalkStep(rootDegree), BASS_MAX_DEGREE);

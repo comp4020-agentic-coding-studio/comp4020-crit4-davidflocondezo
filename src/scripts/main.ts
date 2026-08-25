@@ -22,9 +22,14 @@ const overlay = overlayContainer ? renderKeyboardOverlay(overlayContainer) : nul
 
 const TEMPO_STEP_BPM = 5;
 const DROP_MUTE_RAMP_SECONDS = 0.05;
+const BEAT_JUMP_INTERVAL_MS = 180;
 
 let foundationStarted = false;
 let foundationMuted = false;
+// Per-key interval IDs so ArrowLeft/ArrowRight can each hold-repeat
+// independently -- keydown fires once immediately then starts its own
+// interval, keyup clears just that key's entry.
+const beatJumpIntervals = new Map<string, number>();
 
 // True 3-band OTT-style multiband compressor for the synth bus: an
 // independent crossover + compressor + makeup gain per band, so a loud
@@ -89,9 +94,16 @@ const riserVoice = createRiserVoice(audioContext, masterGain, scheduler);
 
 attachKeyboard(
   {
-    onStabPress(scaleDegree, key) {
+    onStabPress(scaleDegree) {
       stabVoice.trigger(scaleDegree);
-      overlay?.flashKey(key);
+    },
+    onStabHoldStart(scaleDegree, key) {
+      stabVoice.setHeld(scaleDegree, true);
+      overlay?.setKeyActive(key, true);
+    },
+    onStabHoldStop(scaleDegree, key) {
+      stabVoice.setHeld(scaleDegree, false);
+      overlay?.setKeyActive(key, false);
     },
     onFxPress(variant, key) {
       fxVoice.trigger(variant);
@@ -123,6 +135,22 @@ attachKeyboard(
           : "Space to drop the kick & bass";
       }
       overlay?.setKeyActive(" ", foundationMuted);
+    },
+    onBeatJumpStart(direction, key) {
+      scheduler.jumpBar(direction, true);
+      overlay?.flashKey(key);
+      if (beatJumpIntervals.has(key)) return;
+      const intervalId = window.setInterval(() => {
+        scheduler.jumpBar(direction, false);
+        overlay?.flashKey(key);
+      }, BEAT_JUMP_INTERVAL_MS);
+      beatJumpIntervals.set(key, intervalId);
+    },
+    onBeatJumpStop(key) {
+      const intervalId = beatJumpIntervals.get(key);
+      if (intervalId === undefined) return;
+      window.clearInterval(intervalId);
+      beatJumpIntervals.delete(key);
     },
   },
   () => {

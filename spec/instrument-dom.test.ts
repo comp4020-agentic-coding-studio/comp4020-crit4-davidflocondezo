@@ -67,7 +67,7 @@ describe("keyboard overlay: the rendered contract", () => {
 
   it("renders the tempo and drop transport controls with a discoverable accessible name", () => {
     const transportElements = keyElements.filter((el) => el.classList.contains("keyboard-overlay__key--transport"));
-    expect(transportElements.length).toBe(3);
+    expect(transportElements.length).toBe(5);
     for (const el of transportElements) {
       expect(el.getAttribute("aria-label")?.trim()).toBeTruthy();
     }

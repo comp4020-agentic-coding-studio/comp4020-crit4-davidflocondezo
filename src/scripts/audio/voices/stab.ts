@@ -1,10 +1,12 @@
 import type { Scheduler } from "../scheduler";
+import { TICKS_PER_BAR } from "../scheduler";
 import type { FilterMacro } from "../filterMacro";
 import { DEGREES_PER_OCTAVE, SCALE_FREQUENCIES, triadDegrees } from "../scale";
 import { createUnisonStack, type UnisonHandle } from "../unison";
 import { reserveVoices } from "../voiceBudget";
 import { createNoiseBuffer } from "../noise";
 import type { SpaceBus } from "../space";
+import { STAB_RHYTHM_MASKS } from "../patterns";
 
 // Stabs sit an octave above the scale table's base register so they read
 // as a lead, not a bass note, at any scale-degree index the keymap sends.
@@ -31,6 +33,7 @@ const SPACE_SEND_LEVEL = 0.35;
 
 export interface StabVoice {
   trigger(scaleDegree: number): void;
+  setHeld(scaleDegree: number, active: boolean): void;
 }
 
 /**
@@ -41,6 +44,11 @@ export interface StabVoice {
  * much bigger one. Quantized to the next 16th note so mashing the top row
  * never lands off-beat. Filter cutoff jitters per-trigger so repeated notes
  * on the same key don't sound identical.
+ *
+ * Holding a key (see setHeld) layers an auto-repeat on top of that single
+ * click: every held key repeats on the same shared rhythm mask (one picked
+ * at random per session, like bass.ts's BASS_RHYTHM_PATTERNS), so several
+ * held at once interlock into one groove instead of firing independently.
  */
 export function createStabVoice(
   ctx: AudioContext,
@@ -50,6 +58,8 @@ export function createStabVoice(
   spaceBus: SpaceBus,
 ): StabVoice {
   const noiseBuffer = createNoiseBuffer(ctx, 1);
+  const mask = new Set(STAB_RHYTHM_MASKS[Math.floor(Math.random() * STAB_RHYTHM_MASKS.length)]);
+  const heldDegrees = new Set<number>();
 
   function triggerAt(scaleDegree: number, time: number): void {
     const rootDegree = Math.min(scaleDegree + STAB_OCTAVE_OFFSET, SCALE_FREQUENCIES.length - 1);
@@ -124,9 +134,21 @@ export function createStabVoice(
     noise.stop(stopTime);
   }
 
+  // A held key's repeats ride the same tick grid as everything else, gated
+  // to the shared session mask -- the subscription itself is always live,
+  // it's just a no-op whenever nothing is held.
+  scheduler.onTick((tickIndex, time) => {
+    if (!mask.has(tickIndex % TICKS_PER_BAR)) return;
+    for (const degree of heldDegrees) triggerAt(degree, time);
+  });
+
   return {
     trigger(scaleDegree: number): void {
       triggerAt(scaleDegree, scheduler.nextQuantizedTime("16th"));
+    },
+    setHeld(scaleDegree: number, active: boolean): void {
+      if (active) heldDegrees.add(scaleDegree);
+      else heldDegrees.delete(scaleDegree);
     },
   };
 }
