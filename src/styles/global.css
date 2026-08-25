@@ -70,14 +70,18 @@ a {
   display: none;
 }
 
-/* Same hex values as .keyboard-overlay__key--stab / --fx, so the prompt's
-   highlight colors always match the overlay's category colors. */
+/* Same hex values as .keyboard-overlay__key--stab / --fx / --melody, so the
+   prompt's highlight colors always match the overlay's category colors. */
 .opening-prompt__stab {
   color: #4d9dff;
 }
 
 .opening-prompt__fx {
   color: #ff6b6b;
+}
+
+.opening-prompt__melody {
+  color: #4de0a0;
 }
 
 .tempo-readout {
