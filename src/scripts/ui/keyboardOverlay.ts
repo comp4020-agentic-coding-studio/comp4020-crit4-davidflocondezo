@@ -9,22 +9,32 @@ const CATEGORY_LABELS: Record<KeyCategory, string> = {
   riser: "Riser",
 };
 
+// One entry per physical keyboard row, top to bottom, so the on-screen
+// layout mirrors the real keyboard's shape (CSS staggers each row to match).
 // The bottom physical row mixes two categories (zxcvb = melody, nm = riser),
-// so sections are grouped by category rather than by physical row -- each
-// gets its own heading and divider, making the boundary a stranger actually
-// needs to see (e.g. "where does melody end and riser begin") explicit.
-const SECTIONS: ReadonlyArray<{ category: KeyCategory; keys: string }> = [
-  { category: "fx", keys: "1234567890" },
-  { category: "stab", keys: "qwertyuiop" },
-  { category: "atmosphere", keys: "asdfghjkl" },
-  { category: "melody", keys: "zxcvb" },
-  { category: "riser", keys: "nm" },
+// so it renders as two groups sharing one row -- melody on the left, riser
+// on the right -- instead of each getting its own full-width row.
+const ROWS: ReadonlyArray<{
+  rowIndex: 1 | 2 | 3 | 4;
+  groups: ReadonlyArray<{ category: KeyCategory; keys: string }>;
+}> = [
+  { rowIndex: 1, groups: [{ category: "fx", keys: "1234567890" }] },
+  { rowIndex: 2, groups: [{ category: "stab", keys: "qwertyuiop" }] },
+  { rowIndex: 3, groups: [{ category: "atmosphere", keys: "asdfghjkl" }] },
+  {
+    rowIndex: 4,
+    groups: [
+      { category: "melody", keys: "zxcvb" },
+      { category: "riser", keys: "nm" },
+    ],
+  },
 ];
 
-// Not part of KEYMAP (arrows/space aren't musical keys, they're transport
-// controls), so they get their own section rendered separately below, but
-// register into the same keyElements map so flashKey/setKeyActive work on
-// them exactly like any musical key -- lookup is by event.key.toLowerCase().
+// Transport controls (arrows/space) sit below the letter rows, same as on a
+// real keyboard -- rendered last, centered. Not part of KEYMAP (arrows/space
+// aren't musical keys), so they get their own section, but register into the
+// same keyElements map so flashKey/setKeyActive work on them exactly like
+// any musical key -- lookup is by event.key.toLowerCase().
 const TRANSPORT_KEYS: ReadonlyArray<{ key: string; label: string; ariaLabel: string; wide?: boolean }> = [
   { key: "ArrowLeft", label: "←", ariaLabel: "Left arrow: jump back one bar (hold to keep jumping)" },
   { key: "ArrowDown", label: "↓", ariaLabel: "Down arrow: tempo down" },
@@ -54,6 +64,73 @@ export function renderKeyboardOverlay(container: HTMLElement): KeyboardOverlay {
   const keymapByKey = new Map(KEYMAP.map((def) => [def.key, def]));
   const keyElements = new Map<string, HTMLElement>();
 
+  // `reverse` puts the divider before the label (divider fills the space to
+  // its left instead of its right), so a heading sharing a row with another
+  // -- e.g. riser's, next to melody's -- reads with its label at the outer
+  // edge, aligned above where that group's keys actually sit.
+  function createHeading(category: KeyCategory, reverse = false): HTMLElement {
+    const heading = doc.createElement("div");
+    heading.className = `keyboard-overlay__section-heading keyboard-overlay__section--${category}`;
+    const label = doc.createElement("span");
+    label.className = "keyboard-overlay__section-label";
+    label.textContent = CATEGORY_LABELS[category];
+    const divider = doc.createElement("span");
+    divider.className = "keyboard-overlay__section-divider";
+    divider.setAttribute("aria-hidden", "true");
+    if (reverse) {
+      heading.appendChild(divider);
+      heading.appendChild(label);
+    } else {
+      heading.appendChild(label);
+      heading.appendChild(divider);
+    }
+    return heading;
+  }
+
+  function createKeyGroup(keys: string): HTMLElement {
+    const group = doc.createElement("div");
+    group.className = "keyboard-overlay__key-group";
+    for (const key of keys) {
+      const def = keymapByKey.get(key);
+      if (!def) continue;
+      const keyEl = doc.createElement("div");
+      keyEl.className = `keyboard-overlay__key keyboard-overlay__key--${def.category}`;
+      keyEl.textContent = key.toUpperCase();
+      keyEl.setAttribute("role", "img");
+      keyEl.setAttribute("aria-label", `${key.toUpperCase()}: ${CATEGORY_LABELS[def.category]}`);
+      group.appendChild(keyEl);
+      keyElements.set(key, keyEl);
+    }
+    return group;
+  }
+
+  for (const row of ROWS) {
+    const rowEl = doc.createElement("div");
+    rowEl.className = `keyboard-overlay__physical-row keyboard-overlay__physical-row--${row.rowIndex}`;
+
+    if (row.groups.length === 1) {
+      const [{ category, keys }] = row.groups;
+      rowEl.appendChild(createHeading(category));
+      const keysRow = doc.createElement("div");
+      keysRow.className = "keyboard-overlay__row";
+      keysRow.appendChild(createKeyGroup(keys));
+      rowEl.appendChild(keysRow);
+    } else {
+      const headingRow = doc.createElement("div");
+      headingRow.className = "keyboard-overlay__row-heading";
+      const keysRow = doc.createElement("div");
+      keysRow.className = "keyboard-overlay__row keyboard-overlay__row--split";
+      row.groups.forEach(({ category, keys }, i) => {
+        headingRow.appendChild(createHeading(category, i > 0));
+        keysRow.appendChild(createKeyGroup(keys));
+      });
+      rowEl.appendChild(headingRow);
+      rowEl.appendChild(keysRow);
+    }
+
+    container.appendChild(rowEl);
+  }
+
   const transportSection = doc.createElement("div");
   transportSection.className = "keyboard-overlay__section keyboard-overlay__section--transport";
   const transportHeading = doc.createElement("div");
@@ -66,9 +143,10 @@ export function renderKeyboardOverlay(container: HTMLElement): KeyboardOverlay {
   transportDivider.setAttribute("aria-hidden", "true");
   transportHeading.appendChild(transportLabel);
   transportHeading.appendChild(transportDivider);
+  transportSection.appendChild(transportHeading);
 
   const transportRow = doc.createElement("div");
-  transportRow.className = "keyboard-overlay__row";
+  transportRow.className = "keyboard-overlay__row keyboard-overlay__row--center";
   for (const def of TRANSPORT_KEYS) {
     const keyEl = doc.createElement("div");
     keyEl.className = `keyboard-overlay__key keyboard-overlay__key--transport${def.wide ? " keyboard-overlay__key--wide" : ""}`;
@@ -78,43 +156,8 @@ export function renderKeyboardOverlay(container: HTMLElement): KeyboardOverlay {
     transportRow.appendChild(keyEl);
     keyElements.set(def.key.toLowerCase(), keyEl);
   }
-  transportSection.appendChild(transportHeading);
   transportSection.appendChild(transportRow);
   container.appendChild(transportSection);
-
-  for (const section of SECTIONS) {
-    const sectionEl = doc.createElement("div");
-    sectionEl.className = `keyboard-overlay__section keyboard-overlay__section--${section.category}`;
-
-    const heading = doc.createElement("div");
-    heading.className = "keyboard-overlay__section-heading";
-    const label = doc.createElement("span");
-    label.className = "keyboard-overlay__section-label";
-    label.textContent = CATEGORY_LABELS[section.category];
-    const divider = doc.createElement("span");
-    divider.className = "keyboard-overlay__section-divider";
-    divider.setAttribute("aria-hidden", "true");
-    heading.appendChild(label);
-    heading.appendChild(divider);
-
-    const rowEl = doc.createElement("div");
-    rowEl.className = "keyboard-overlay__row";
-    for (const key of section.keys) {
-      const def = keymapByKey.get(key);
-      if (!def) continue;
-      const keyEl = doc.createElement("div");
-      keyEl.className = `keyboard-overlay__key keyboard-overlay__key--${def.category}`;
-      keyEl.textContent = key.toUpperCase();
-      keyEl.setAttribute("role", "img");
-      keyEl.setAttribute("aria-label", `${key.toUpperCase()}: ${CATEGORY_LABELS[def.category]}`);
-      rowEl.appendChild(keyEl);
-      keyElements.set(key, keyEl);
-    }
-
-    sectionEl.appendChild(heading);
-    sectionEl.appendChild(rowEl);
-    container.appendChild(sectionEl);
-  }
 
   return {
     flashKey(key: string): void {

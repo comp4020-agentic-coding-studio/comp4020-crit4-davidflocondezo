@@ -27,7 +27,15 @@ masterLimiter.release.value = 0.1;
 
 masterGain.connect(masterCompressor);
 masterCompressor.connect(masterLimiter);
-masterLimiter.connect(audioContext.destination);
+
+// Tapped after the limiter so the visualiser reflects the actual mastered
+// output (everything audible, already glued and peak-capped) rather than any
+// single voice's pre-limiter signal. An analyser node passes audio through
+// unchanged, so it's just inserted inline ahead of the destination.
+export const analyser = audioContext.createAnalyser();
+analyser.fftSize = 2048;
+masterLimiter.connect(analyser);
+analyser.connect(audioContext.destination);
 
 export const scheduler = new Scheduler(audioContext);
 

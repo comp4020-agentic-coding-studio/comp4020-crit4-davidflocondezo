@@ -6,22 +6,29 @@ import Layout from "../layouts/Layout.astro";
   title="Hardstyle instrument"
   description="A 150 BPM hardstyle instrument played on your keyboard: 36 keys of live-synthesized stabs, FX, pads, generative melody, and risers, locked to a shared musical grid so nothing you play can sound wrong."
 >
-  <header>
-    <nav aria-label="Primary">
-      <a href="./">Home</a>
-    </nav>
-  </header>
+  <nav aria-label="Primary" hidden></nav>
   <main>
-    <h1>Hardstyle instrument</h1>
-    <p id="opening-prompt" class="opening-prompt">Press any key to begin.</p>
-    <p id="tempo-readout" class="tempo-readout" aria-live="polite">Tempo: 150 BPM (&uarr;/&darr; to adjust)</p>
-    <p id="drop-readout" class="drop-readout" aria-live="polite">Space to drop the kick &amp; bass</p>
-    <section
-      id="keyboard-overlay"
-      class="keyboard-overlay"
-      aria-label="Instrument keyboard, 36 keys across five sections"
-    >
-    </section>
+    <div class="header-row">
+      <div id="instrument-header" class="instrument-header">
+        <h1>Hardstyle instrument</h1>
+        <p id="opening-prompt" class="opening-prompt">Press any key to begin.</p>
+        <p id="tempo-readout" class="tempo-readout" aria-live="polite">Tempo: 150 BPM (&uarr;/&darr; to adjust)</p>
+        <p id="drop-readout" class="drop-readout" aria-live="polite">Space to drop the kick &amp; bass</p>
+        <p id="arrangement-readout" class="arrangement-readout" aria-live="polite">Arrangement: Intro (Tab to cycle)</p>
+        <div id="arrangement-control" class="arrangement-control" role="group" aria-label="Arrangement state"></div>
+      </div>
+      <div id="audio-visualizer" class="audio-visualizer" aria-hidden="true"></div>
+    </div>
+    <div class="instrument-stage">
+      <div id="dj-deck" class="dj-deck" aria-hidden="true"></div>
+      <section
+        id="keyboard-overlay"
+        class="keyboard-overlay"
+        aria-label="Instrument keyboard, 36 keys across five sections"
+      >
+      </section>
+      <div id="pitch-shifter" class="pitch-shifter" aria-hidden="true"></div>
+    </div>
   </main>
   <script src="../scripts/main.ts"></script>
 </Layout>

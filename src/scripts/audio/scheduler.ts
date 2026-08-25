@@ -4,8 +4,8 @@
 // never from setTimeout/setInterval drift.
 
 const DEFAULT_BPM = 150;
-const MIN_BPM = 140;
-const MAX_BPM = 190;
+export const MIN_BPM = 140;
+export const MAX_BPM = 190;
 export const TICKS_PER_BEAT = 4; // 16th-note resolution
 export const TICKS_PER_BAR = TICKS_PER_BEAT * 4; // 4/4 time
 

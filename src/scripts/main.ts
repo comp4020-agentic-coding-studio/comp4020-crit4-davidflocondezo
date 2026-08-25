@@ -1,6 +1,6 @@
-import { audioContext, masterGain, scheduler, unlockAudio } from "./audio/context";
+import { analyser, audioContext, masterGain, scheduler, unlockAudio } from "./audio/context";
 import { createFilterMacro } from "./audio/filterMacro";
-import { createArrangementController, TENSION_MIN_HZ } from "./audio/arrangement";
+import { createArrangementController, TENSION_MIN_HZ, type ArrangementState } from "./audio/arrangement";
 import { createAtmosphereVoice } from "./audio/voices/atmosphere";
 import { createBassVoice } from "./audio/voices/bass";
 import { createFxVoice } from "./audio/voices/fx";
@@ -15,12 +15,42 @@ import { createSaturationBus } from "./audio/saturation";
 import { createMultibandBus } from "./audio/multiband";
 import { attachKeyboard } from "./input/keyboard";
 import { renderKeyboardOverlay } from "./ui/keyboardOverlay";
+import { renderArrangementControl } from "./ui/arrangementControl";
+import { renderDjDeck } from "./ui/djDeck";
+import { renderPitchShifter } from "./ui/pitchShifter";
+import { renderAudioVisualizer } from "./ui/audioVisualizer";
 
 const overlayContainer = document.querySelector<HTMLElement>("#keyboard-overlay");
+const djDeckContainer = document.querySelector<HTMLElement>("#dj-deck");
+const pitchShifterContainer = document.querySelector<HTMLElement>("#pitch-shifter");
+const audioVisualizerContainer = document.querySelector<HTMLElement>("#audio-visualizer");
+const instrumentHeader = document.querySelector<HTMLElement>("#instrument-header");
+const mainEl = document.querySelector<HTMLElement>("main");
 const openingPrompt = document.querySelector<HTMLElement>("#opening-prompt");
 const tempoReadout = document.querySelector<HTMLElement>("#tempo-readout");
 const dropReadout = document.querySelector<HTMLElement>("#drop-readout");
+const arrangementReadout = document.querySelector<HTMLElement>("#arrangement-readout");
+const arrangementControlContainer = document.querySelector<HTMLElement>("#arrangement-control");
 const overlay = overlayContainer ? renderKeyboardOverlay(overlayContainer) : null;
+const djDeck = djDeckContainer ? renderDjDeck(djDeckContainer) : null;
+const pitchShifter = pitchShifterContainer ? renderPitchShifter(pitchShifterContainer) : null;
+if (audioVisualizerContainer) renderAudioVisualizer(audioVisualizerContainer, analyser);
+
+// .dj-deck__body's left edge is a moving target -- its width is clamped by
+// both the viewport (50vw - 18rem) and the keyboard's own height, so there's
+// no single CSS formula for "where dj-deck ends up" that's worth duplicating
+// here. Measuring the real rendered box and translating the header by the
+// difference tracks that clamp exactly, at every viewport width, for free.
+const djDeckBody = djDeckContainer?.querySelector<HTMLElement>(".dj-deck__body") ?? null;
+
+function alignHeaderToDjDeck(): void {
+  if (!instrumentHeader || !djDeckBody || !mainEl) return;
+  const delta = djDeckBody.getBoundingClientRect().left - mainEl.getBoundingClientRect().left;
+  instrumentHeader.style.marginLeft = `${delta}px`;
+}
+
+alignHeaderToDjDeck();
+window.addEventListener("resize", alignHeaderToDjDeck);
 
 const TEMPO_STEP_BPM = 5;
 const DROP_MUTE_RAMP_SECONDS = 0.05;
@@ -127,6 +157,32 @@ const atmosphereVoice = createAtmosphereVoice(audioContext, sidechain.input, sch
 const melodyVoice = createMelodyVoice(audioContext, saturation.input, scheduler, filterMacro, spaceBus, arrangement);
 const riserVoice = createRiserVoice(audioContext, masterGain, scheduler, arrangement);
 
+const ARRANGEMENT_LABELS: Record<ArrangementState, string> = {
+  intro: "Intro",
+  buildup: "Buildup",
+  climax: "Climax",
+};
+
+function updateArrangementReadout(state: ArrangementState): void {
+  if (!arrangementReadout) return;
+  arrangementReadout.textContent = `Arrangement: ${ARRANGEMENT_LABELS[state]} (Tab to cycle)`;
+}
+
+const arrangementControl = arrangementControlContainer
+  ? renderArrangementControl(arrangementControlContainer, (target) => {
+      if (target === "climax") arrangement.requestClimax();
+      else arrangement.setState(target);
+    })
+  : null;
+
+arrangement.onChange((state) => {
+  arrangementControl?.setActive(state);
+  updateArrangementReadout(state);
+});
+arrangementControl?.setActive(arrangement.getState());
+updateArrangementReadout(arrangement.getState());
+pitchShifter?.setTempo(scheduler.getBpm());
+
 attachKeyboard(
   {
     onStabPress(scaleDegree) {
@@ -161,6 +217,7 @@ attachKeyboard(
       spaceBus.setBpm(bpm);
       if (tempoReadout) tempoReadout.textContent = `Tempo: ${bpm} BPM (↑/↓ to adjust)`;
       overlay?.flashKey(key);
+      pitchShifter?.setTempo(bpm);
     },
     onDropToggle() {
       setFoundationMuted(!foundationMuted);
@@ -174,6 +231,7 @@ attachKeyboard(
     onBeatJumpStart(direction, key) {
       scheduler.jumpBar(direction, true);
       overlay?.flashKey(key);
+      djDeck?.spin(direction, true);
       if (beatJumpIntervals.has(key)) return;
       const intervalId = window.setInterval(() => {
         scheduler.jumpBar(direction, false);
@@ -182,6 +240,11 @@ attachKeyboard(
       beatJumpIntervals.set(key, intervalId);
     },
     onBeatJumpStop(key) {
+      // Not gated behind the interval-map check below -- onBeatJumpStart
+      // fires unconditionally on every non-repeat keydown (see
+      // keyboard.ts), so the deck's held state must always clear on the
+      // matching keyup regardless of the interval bookkeeping.
+      djDeck?.spin(key === "ArrowLeft" ? -1 : 1, false);
       const intervalId = beatJumpIntervals.get(key);
       if (intervalId === undefined) return;
       window.clearInterval(intervalId);

@@ -1,3 +1,10 @@
+:root {
+  /* 10 keys @ 2.75rem + 9 gaps @ 0.4rem -- the FX row's width, which caps
+     .keyboard-overlay. Shared so anything meant to line up with the keys
+     (the audio visualiser) doesn't duplicate this formula. */
+  --keys-width: calc(10 * 2.75rem + 9 * 0.4rem);
+}
+
 body {
   margin: 0;
   padding: 2rem;
@@ -14,6 +21,43 @@ main {
 
 a {
   color: #7db4ff;
+}
+
+/*
+ * `flow-root` gives this wrapper a self-contained height that includes every
+ * descendant's margins (h1/p's own default top/bottom margins included)
+ * instead of letting the first/last child's margins collapse through it --
+ * that self-contained height is exactly what .audio-visualizer stretches to
+ * match below. `position: relative` makes it the containing block for that
+ * absolutely-positioned visualiser.
+ */
+.header-row {
+  position: relative;
+  display: flow-root;
+}
+
+/*
+ * Stays in normal flow (still the only in-flow child of .header-row, so it
+ * alone determines that row's height) -- main.ts sets margin-left inline,
+ * measured against .dj-deck__body's actual rendered left edge, so this
+ * block's left edge tracks the deck's at any viewport width without
+ * duplicating its clamped width formula here.
+ */
+.instrument-header {
+  margin-left: 0;
+}
+
+/*
+ * h1's UA-default top margin would otherwise collapse through
+ * .instrument-header (which isn't itself a flow-root) and get caught by
+ * .header-row's flow-root instead of escaping -- leaving a gap between
+ * .header-row's own top edge and where the header's content actually starts,
+ * which is exactly the gap .audio-visualizer's top:0 would inherit. Zeroing
+ * it keeps the header's rendered box flush with .header-row's, so the two
+ * stay the same height with no residual offset.
+ */
+.instrument-header h1 {
+  margin: 0;
 }
 
 .opening-prompt {
@@ -38,12 +82,312 @@ a {
   margin-top: 0.25rem;
 }
 
+.arrangement-readout {
+  font-size: 0.85rem;
+  color: #9a9ab0;
+  margin-top: 0.25rem;
+}
+
+.arrangement-control {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.arrangement-control__button {
+  flex: 0 0 auto;
+  padding: 0.5rem 1.1rem;
+  border: none;
+  border-radius: 0.4rem;
+  font-weight: 700;
+  font-size: 0.85rem;
+  font-family: inherit;
+  cursor: pointer;
+  background: #2a2a38;
+  color: #f2f2f7;
+  opacity: 0.55;
+  transition: opacity 80ms ease-out, transform 80ms ease-out;
+}
+
+.arrangement-control__button[aria-pressed="true"] {
+  opacity: 1;
+  transform: translateY(-2px);
+  background: #4d9dff;
+  color: #0b0b12;
+}
+
+/*
+ * Real-time waveform display, pulled out of flow so it shares the header
+ * text's row instead of stacking below it. `top: 0; bottom: 0` (no explicit
+ * height) stretches it to .header-row's full height, which -- because that
+ * row's only in-flow child is #instrument-header -- is exactly the header
+ * text block's own rendered height. `left: 0; right: 0` plus a fixed width
+ * and `margin: 0 auto` centers it under main the same way .instrument-stage
+ * centers #keyboard-overlay, so its left/right edges land in the same place
+ * as the keys section below (via --keys-width) even though it's a separate,
+ * absolutely-positioned box.
+ */
+.audio-visualizer {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  width: var(--keys-width);
+  margin: 0 auto;
+  border-radius: 0.75rem;
+  overflow: hidden;
+  background: #000000;
+}
+
+.audio-visualizer__canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/*
+ * #dj-deck is positioned absolute (see below) so it never takes part in
+ * layout -- .instrument-stage shrinks to fit #keyboard-overlay, the only
+ * element left in normal flow, and centers under main exactly the way
+ * .keyboard-overlay used to center itself before the deck existed.
+ */
+.instrument-stage {
+  position: relative;
+  width: fit-content;
+  margin: 1.5rem auto 0 auto;
+}
+
+/*
+ * Decorative turntable, purely visual sync with the ArrowLeft/ArrowRight
+ * beat-jump transport keys -- aria-hidden in the markup since it duplicates
+ * nothing not already on those keys' own aria-labels. Pulled out of flow and
+ * anchored to the left of the keyboard block via `right: 100%` so it lives in
+ * the page's left margin without shifting or widening the keyboard. `top: 0;
+ * bottom: 0` (no `left`/`width`) stretches it to #keyboard-overlay's full
+ * height -- from the FX row down to the transport row -- while its width
+ * stays purely a function of .dj-deck__body's own width, so growing that
+ * width only ever pushes this further left, never right into the keys.
+ */
+.dj-deck {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: 100%;
+  margin-right: 2rem;
+}
+
+.dj-deck__body {
+  position: relative;
+  box-sizing: border-box;
+  /*
+   * height is the constrained axis (width is left `auto` so `aspect-ratio`
+   * derives it from that already-resolved height, guaranteeing a square
+   * instead of width and height being clamped independently and drifting
+   * apart). Capped at the lesser of #keyboard-overlay's height and the actual
+   * safe gutter width, computed rather than guessed: .instrument-stage
+   * centers #keyboard-overlay (width capped at 31.1rem) under body's content
+   * box (viewport minus 2rem padding each side), and nested margin:auto
+   * centering cancels main's own width out of that calculation entirely, so
+   * the leftover space to the left of the keyboard is exactly
+   * (100vw - 4rem - 31.1rem) / 2 = 50vw - 17.55rem. Subtracting a further
+   * 0.45rem as a safety margin keeps the square just shy of the viewport's
+   * left edge instead of touching it exactly.
+   */
+  aspect-ratio: 1;
+  height: min(100%, max(0px, calc(50vw - 18rem)));
+  width: auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.75rem;
+  background: linear-gradient(155deg, #24242f, #15151d);
+  border: 1px solid #34343f;
+  box-shadow: 0 0.6rem 1.4rem rgba(0, 0, 0, 0.45);
+}
+
+/*
+ * Sized as a % of .dj-deck__body rather than a fixed rem so the platter
+ * keeps filling most of the square regardless of how big that square ends
+ * up being (it's dynamic -- see .dj-deck__body above).
+ */
+.dj-deck__platter {
+  box-sizing: border-box;
+  width: 90%;
+  height: 90%;
+  border-radius: 50%;
+  background: #1c1c26;
+  border: 0.4rem solid #2a2a38;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow:
+    inset 0 0 0.6rem rgba(0, 0, 0, 0.6),
+    0 0.25rem 0.6rem rgba(0, 0, 0, 0.35);
+}
+
+.dj-deck__disc {
+  box-sizing: border-box;
+  width: 82%;
+  height: 82%;
+  border-radius: 50%;
+  /* Concentric vinyl grooves via repeating-radial-gradient -- no image
+     assets needed. */
+  background: repeating-radial-gradient(
+    circle at center,
+    #0b0b12 0,
+    #0b0b12 0.14rem,
+    #23232f 0.14rem,
+    #23232f 0.45rem
+  );
+  position: relative;
+}
+
+/*
+ * The grooves and the center label are both perfectly concentric, so
+ * without this the disc would be rotationally symmetric -- an animation
+ * could be spinning it and it would look completely static. This off-center
+ * mark (like a real label's printing/logo) is what actually makes the spin
+ * visible.
+ */
+.dj-deck__disc::before {
+  content: "";
+  position: absolute;
+  top: 14%;
+  left: 50%;
+  width: 12%;
+  height: 12%;
+  border-radius: 50%;
+  background: #ff6b6b;
+  box-shadow: 0 0 0.4rem rgba(255, 107, 107, 0.7);
+  transform: translate(-50%, -50%);
+}
+
+.dj-deck__disc::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 22%;
+  height: 22%;
+  border-radius: 50%;
+  background: #c7c7d6;
+  transform: translate(-50%, -50%);
+}
+
+/* Tonearm resting over the platter's edge, headshell + pivot base via
+   pseudo-elements so no extra DOM nodes are needed for it. */
+.dj-deck__tonearm {
+  position: absolute;
+  top: 6%;
+  right: 7%;
+  width: 2%;
+  height: 42%;
+  background: linear-gradient(#c7c7d6, #8f8fa0);
+  border-radius: 0.2rem;
+  transform: rotate(30deg);
+  transform-origin: top right;
+}
+
+.dj-deck__tonearm::before {
+  content: "";
+  position: absolute;
+  bottom: -0.35rem;
+  left: -0.45rem;
+  width: 1.3rem;
+  height: 0.65rem;
+  background: #2a2a38;
+  border-radius: 0.15rem;
+}
+
+.dj-deck__tonearm::after {
+  content: "";
+  position: absolute;
+  top: -0.45rem;
+  right: -0.45rem;
+  width: 1.3rem;
+  height: 1.3rem;
+  border-radius: 50%;
+  background: #2a2a38;
+  border: 0.14rem solid #3a3a48;
+}
+
+@keyframes dj-deck-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.dj-deck__disc--spin-right {
+  animation: dj-deck-spin 1.6s linear infinite;
+}
+
+.dj-deck__disc--spin-left {
+  animation: dj-deck-spin 1.6s linear infinite reverse;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dj-deck__disc--spin-right,
+  .dj-deck__disc--spin-left {
+    animation: none;
+  }
+}
+
+/*
+ * Decorative tempo fader, mirroring .dj-deck's placement/mechanism exactly
+ * but on the opposite side: pulled out of flow and anchored to the right of
+ * the keyboard block via `left: 100%` so it lives in the page's right margin
+ * without shifting or widening the keyboard. `top: 0; bottom: 0` stretches it
+ * to #keyboard-overlay's full height, same as .dj-deck. aria-hidden in the
+ * markup since it duplicates nothing not already on the up/down transport
+ * keys' own aria-labels.
+ */
+.pitch-shifter {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 100%;
+  margin-left: 2rem;
+  display: flex;
+  align-items: center;
+}
+
+.pitch-shifter__track {
+  box-sizing: border-box;
+  position: relative;
+  width: 1.4rem;
+  height: 100%;
+  border-radius: 0.7rem;
+  background: linear-gradient(155deg, #24242f, #15151d);
+  border: 1px solid #34343f;
+  box-shadow:
+    inset 0 0 0.6rem rgba(0, 0, 0, 0.5),
+    0 0.6rem 1.4rem rgba(0, 0, 0, 0.45);
+}
+
+/* `bottom` is set inline (see pitchShifter.ts's setTempo) as a % of
+   [MIN_BPM, MAX_BPM] -- higher tempo pushes the knob further up the track. */
+.pitch-shifter__knob {
+  position: absolute;
+  left: 50%;
+  bottom: 0%;
+  width: 2.2rem;
+  height: 1rem;
+  border-radius: 0.3rem;
+  background: linear-gradient(#c7c7d6, #8f8fa0);
+  border: 1px solid #3a3a48;
+  transform: translate(-50%, 50%);
+  transition: bottom 120ms ease-out;
+}
+
 .keyboard-overlay {
   display: flex;
   flex-direction: column;
   gap: 1rem;
-  margin-top: 1.5rem;
   user-select: none;
+  /* Caps the layout to the FX row's width so the melody/riser split row
+     doesn't spread across the full page width. */
+  max-width: var(--keys-width);
 }
 
 .keyboard-overlay__section-heading {
@@ -96,6 +440,42 @@ a {
 .keyboard-overlay__row {
   display: flex;
   gap: 0.4rem;
+}
+
+.keyboard-overlay__row--split {
+  justify-content: space-between;
+  gap: 1.5rem;
+}
+
+.keyboard-overlay__row--center {
+  justify-content: center;
+}
+
+.keyboard-overlay__row-heading {
+  display: flex;
+  gap: 1.5rem;
+  margin-bottom: 0.4rem;
+}
+
+.keyboard-overlay__row-heading .keyboard-overlay__section-heading {
+  flex: 1;
+  margin-bottom: 0;
+}
+
+.keyboard-overlay__key-group {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.keyboard-overlay__section--transport {
+  display: flex;
+  flex-direction: column;
+  /* Shrinks to the width of its widest child (the key row) instead of
+     stretching to the full keyboard-overlay width, so the heading's
+     divider -- stretched to match via the default align-items: stretch --
+     ends exactly where the transport keys do. Anchored left (not centered)
+     so it lines up with every other row's left edge. */
+  align-self: flex-start;
 }
 
 .keyboard-overlay__key {
