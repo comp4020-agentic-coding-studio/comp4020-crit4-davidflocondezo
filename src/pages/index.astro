@@ -11,7 +11,10 @@ import Layout from "../layouts/Layout.astro";
     <div class="header-row">
       <div id="instrument-header" class="instrument-header">
         <h1>Hardstyle instrument</h1>
-        <p id="opening-prompt" class="opening-prompt">Press any key to begin.</p>
+        <p id="opening-prompt" class="opening-prompt">
+          Press any <span class="opening-prompt__stab">STAB</span> or
+          <span class="opening-prompt__fx">FX</span> key to begin.
+        </p>
         <p id="tempo-readout" class="tempo-readout" aria-live="polite">Tempo: 150 BPM (&uarr;/&darr; to adjust)</p>
         <p id="drop-readout" class="drop-readout" aria-live="polite">Space to drop the kick &amp; bass</p>
         <p id="arrangement-readout" class="arrangement-readout" aria-live="polite">Arrangement: Intro (Tab to cycle)</p>

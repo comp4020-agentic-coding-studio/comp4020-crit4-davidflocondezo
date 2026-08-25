@@ -70,6 +70,16 @@ a {
   display: none;
 }
 
+/* Same hex values as .keyboard-overlay__key--stab / --fx, so the prompt's
+   highlight colors always match the overlay's category colors. */
+.opening-prompt__stab {
+  color: #4d9dff;
+}
+
+.opening-prompt__fx {
+  color: #ff6b6b;
+}
+
 .tempo-readout {
   font-size: 0.85rem;
   color: #9a9ab0;
