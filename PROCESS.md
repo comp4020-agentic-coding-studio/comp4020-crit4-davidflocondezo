@@ -1,85 +1,30 @@
 # Process overview
 
-<!-- TEMPLATE: this file is a shape to fill in, not a form. Replace everything
-     in it with your own overview, and delete this comment — `pnpm
-     check:evidence` will remind you if it's still here. -->
-
-A reading-guide to how the work came together --- a map to your process, not an
-essay about it. Markers read this file and follow its citations; they don't
-trawl the repo for evidence you didn't point at, so if a moment mattered, cite
-it.
-
-This file is the shape; the course site's
-[assessment page](https://comp.anu.edu.au/courses/comp4020-agentic-coding-studio/topics/assessment/#what-you-submit)
-is the requirement, and its
-[word counts](https://comp.anu.edu.au/courses/comp4020-agentic-coding-studio/topics/assessment/#word-counts)
-cover every deliverable.
+A reading-guide to how the work came together.
 
 ## What I built
 
-One paragraph: the thing, and the idea behind it.
+A browser-based hardstyle instrument, live-tempo-adjustable between 140–190
+BPM: all 36 alphanumeric keys layer live-synthesized stabs, pads, a
+generative melody, risers, and FX over an always-quantized kick/bass
+foundation. Tab cycles an intro/buildup/climax arrangement that sweeps a
+shared filter and gates the foundation toward a drop, and Space drops it
+early. The UI uses a color-coded keyboard overlay, a real-time waveform visualiser, a spinning DJ-deck disc, and a pitch-shifter fader give visual feedback for
+every one of those systems without needing instructions.
 
 ## The moments that mattered
 
-Three or four for an assignment; fewer is fine for a weekly prototype. Keep the
-list short so each moment has room to do all four jobs:
+1. **I realised that the keys were not random** After creating the hardstyle player keys. By reloading the page and trying out the sounds. I realised that the keys were not playing random sounds at all, and would sound very similar on diffferent session loads. What i did to fix this was choose a random root transposition once per page load and made sure every voice would read from this same table, so the whole instrument shifts into a different key each session.
+[`9f6de08`](https://github.com/comp4020-agentic-coding-studio/comp4020-crit4-davidflocondezo/commit/9f6de08)
 
-1. **what happened** --- the problem, or the thing that went wrong
-2. **what you did instead of the obvious thing** --- the call you made, and why
-   it beat the obvious one
-3. **how you knew it was right** --- the check you ran, the viewport you looked
-   at, what you read before accepting the diff
-4. **the citation** --- a commit or commit range, a `CLAUDE.md` change, a check
-   that went from red to green, a prompt paired with the commit it produced
+2. **From simple hardstyle to euphoric hardstyle** Trying to create good sounding hardstyle sounds was impossible. I played some hardstyle songs to figure out how I could make mine sound better instead of just keys clicking and making noise. I realised hardstyle songs have a more euphoric tone compared to the noise that I was creating. So I decided to move away from the single oscillators that I was using and instead went for an approach of stacking multiple sawtooth waves and slightly detuning them against each other to make it sound more pleasing to the ear.
+[`f44fb97`](https://github.com/comp4020-agentic-coding-studio/comp4020-crit4-davidflocondezo/commit/f44fb97)
 
-Jobs 2 and 3 are the ones the repo can't tell a reader on its own, so they're
-where the marks are. The strongest moments are the ones where a correction
-landed in the **harness** --- the standards and checks your work has to satisfy
---- rather than in a retry: a rule added to `CLAUDE.md`, a check wired up, an
-attempt thrown away. Retrying until it passes is the routine case, and changing
-what the work runs against is the skilled one.
-
-Cite each moment as a link whose text is the commit hash or range and whose
-target is this repo's commit or compare URL, so a reader clicks straight to the
-evidence:
-
-- one commit: [`a1b2c3d`](https://github.com/YOUR-ORG/YOUR-REPO/commit/a1b2c3d)
-- a range:
-  [`a1b2c3d...e4f5a6b`](https://github.com/YOUR-ORG/YOUR-REPO/compare/a1b2c3d...e4f5a6b)
-
-To pair a prompt with the commit it produced, quote the prompt (curated, not a
-full transcript) next to the citation:
-
-> the prompt, verbatim
-
-Screenshots are welcome where one carries the verification better than a
-sentence does. Commit the file to this repo and link it with a **relative**
-path, which is what makes it render on GitHub: `![alt text](docs/before.png)`.
-Images don't count towards the word count and don't replace the citation.
-
-### A worked moment, for shape
-
-Delete this section along with the rest of the boilerplate --- it's here to show
-the four jobs in one paragraph, not to be imitated in content.
-
-> The date formatter kept coming back with `toLocaleDateString()` and no locale
-> argument, so the same build rendered differently on my machine and in CI. I'd
-> already re-prompted it twice, which fixed the line but not the habit, so the
-> third time I put the rule in `CLAUDE.md` instead
-> ([`3f9ac21`](https://github.com/YOUR-ORG/YOUR-REPO/commit/3f9ac21)) and added
-> a spec test that fails on a bare `toLocaleDateString`. That's what told me it
-> had actually taken: the test went red against the old code and green against
-> the new, and the next two features it wrote passed it without prompting
-> ([`3f9ac21...b7e0d14`](https://github.com/YOUR-ORG/YOUR-REPO/compare/3f9ac21...b7e0d14)).
+3. **Multiple keys not getting patched with changes** While updating the entire oscillator across the keys, I tested the Melody keys and sounded with the new update but testing all keys I noticed no visible change. Upon inspecting the code, I realised that the agent had only updated for the melody keys and not for the other 4 key groupings. Because of this I added a rule in the claude.md so that any change that is meant to apply to the keys is ensured to apply across all the voices there. This made sure that I didn't run into that issue again.
+[`bcd6d70`](https://github.com/comp4020-agentic-coding-studio/comp4020-crit4-davidflocondezo/commit/bcd6d70)
 
 ## Before you ship
 
-`pnpm check:evidence` verifies your citations resolve to real commits, that a
-reflection entry the marker reads is in `reflections/`, and that your
-`CLAUDE.md` is there --- before a marker ever opens the file. It checks that
-your map is traceable, not that it is good: the marker judges whether your
-small, deliberately chosen set of moments shows real judgement and reflection. A
-green check is not a substitute for that curation.
-
-Images aren't checked: whether one renders is visible the moment you look. Open
-this file on GitHub and look at it before you ship.
+`pnpm check:evidence` verifies these citations resolve to real commits, that
+`reflections/crit-4.md` and `CLAUDE.md` are present, and that this file no
+longer carries its template comment.
