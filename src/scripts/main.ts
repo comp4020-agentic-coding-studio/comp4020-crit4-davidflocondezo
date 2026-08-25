@@ -1,5 +1,6 @@
 import { audioContext, masterGain, scheduler, unlockAudio } from "./audio/context";
 import { createFilterMacro } from "./audio/filterMacro";
+import { createArrangementController, TENSION_MIN_HZ } from "./audio/arrangement";
 import { createAtmosphereVoice } from "./audio/voices/atmosphere";
 import { createBassVoice } from "./audio/voices/bass";
 import { createFxVoice } from "./audio/voices/fx";
@@ -7,6 +8,7 @@ import { createKickVoice } from "./audio/voices/kick";
 import { createMelodyVoice } from "./audio/voices/melody";
 import { createRiserVoice } from "./audio/voices/riser";
 import { createStabVoice } from "./audio/voices/stab";
+import { createTensionDrumVoice } from "./audio/voices/tensionDrum";
 import { createSpaceBus } from "./audio/space";
 import { createSidechainBus } from "./audio/sidechain";
 import { createSaturationBus } from "./audio/saturation";
@@ -38,11 +40,21 @@ const beatJumpIntervals = new Map<string, number>();
 // in context.ts, which remain the final safety-net stage.
 const multiband = createMultibandBus(audioContext, masterGain);
 
+// Shared highpass that the arrangement controller sweeps 20Hz->1000Hz over
+// BUILDUP, starving the low end ("vacuum cleaner" effect) from everything
+// that already routes through sidechain -- bass, stab, melody, atmosphere --
+// while automatically excluding kick, fx, and riser, which never pass
+// through this chain. Starts fully open (TENSION_MIN_HZ), matching INTRO.
+const tensionFilter = audioContext.createBiquadFilter();
+tensionFilter.type = "highpass";
+tensionFilter.frequency.value = TENSION_MIN_HZ;
+tensionFilter.connect(multiband.input);
+
 // Bass and the chord/lead voices (plus their reverb sends) route through
 // this bus so the kick can pump them on every beat. Riser and fx bypass it
 // on purpose: a riser is an unbroken swell, and one-shot fx hits are too
 // short for ducking to buy anything.
-const sidechain = createSidechainBus(audioContext, multiband.input, () => scheduler.getBpm());
+const sidechain = createSidechainBus(audioContext, tensionFilter, () => scheduler.getBpm());
 
 // Melody (the lead) and stab (chords/plucks) are the two voices meant to cut
 // through the mix, so they route through this waveshaper-distortion bus for
@@ -57,18 +69,41 @@ const saturation = createSaturationBus(audioContext, sidechain.input);
 // triggered voice (stab, fx, atmosphere, melody, riser) keeps sounding,
 // still perfectly quantized, because the scheduler itself never stops.
 const kickMuteGain = audioContext.createGain();
-kickMuteGain.connect(masterGain);
 const bassMuteGain = audioContext.createGain();
-bassMuteGain.connect(sidechain.input);
+
+// A second, independent multiplier downstream of each mute gain: the
+// arrangement controller drives these to silence kick+bass during
+// INTRO/BUILDUP and bring them back full for CLIMAX, without fighting
+// Space's own automation on kickMuteGain/bassMuteGain above. Both start
+// silent -- kick/bass are silent by default until climax is reached.
+const kickArrangementGain = audioContext.createGain();
+kickArrangementGain.gain.value = 0;
+kickMuteGain.connect(kickArrangementGain);
+kickArrangementGain.connect(masterGain);
+
+const bassArrangementGain = audioContext.createGain();
+bassArrangementGain.gain.value = 0;
+bassMuteGain.connect(bassArrangementGain);
+bassArrangementGain.connect(sidechain.input);
+
+const arrangement = createArrangementController(
+  audioContext,
+  scheduler,
+  kickArrangementGain,
+  bassArrangementGain,
+  tensionFilter,
+);
+createTensionDrumVoice(audioContext, masterGain, scheduler, arrangement);
 
 function startFoundation(): void {
   if (foundationStarted) return;
   foundationStarted = true;
-  // Ducking is skipped while dropped: a duck rhythm with no audible kick to
-  // justify it would read as the mix pumping for no reason instead of the
-  // pads/leads swelling freely during the drop.
+  // Ducking is skipped while dropped, or while the kick isn't the audible
+  // foundation (INTRO/BUILDUP use the tension-drum instead): a duck rhythm
+  // with no audible kick to justify it would read as the mix pumping for no
+  // reason instead of the pads/leads swelling freely.
   createKickVoice(audioContext, kickMuteGain, scheduler, (time) => {
-    if (!foundationMuted) sidechain.duck(time);
+    if (!foundationMuted && arrangement.getState() === "climax") sidechain.duck(time);
   });
   createBassVoice(audioContext, bassMuteGain, scheduler);
 }
@@ -89,8 +124,8 @@ const spaceBus = createSpaceBus(audioContext, sidechain.input, () => scheduler.g
 const stabVoice = createStabVoice(audioContext, saturation.input, scheduler, filterMacro, spaceBus);
 const fxVoice = createFxVoice(audioContext, masterGain, scheduler, filterMacro);
 const atmosphereVoice = createAtmosphereVoice(audioContext, sidechain.input, scheduler, filterMacro, spaceBus);
-const melodyVoice = createMelodyVoice(audioContext, saturation.input, scheduler, filterMacro, spaceBus);
-const riserVoice = createRiserVoice(audioContext, masterGain, scheduler);
+const melodyVoice = createMelodyVoice(audioContext, saturation.input, scheduler, filterMacro, spaceBus, arrangement);
+const riserVoice = createRiserVoice(audioContext, masterGain, scheduler, arrangement);
 
 attachKeyboard(
   {
@@ -151,6 +186,12 @@ attachKeyboard(
       if (intervalId === undefined) return;
       window.clearInterval(intervalId);
       beatJumpIntervals.delete(key);
+    },
+    onArrangementCycle() {
+      const state = arrangement.getState();
+      if (state === "intro") arrangement.setState("buildup");
+      else if (state === "buildup") arrangement.requestClimax();
+      else arrangement.setState("intro");
     },
   },
   () => {

@@ -1,6 +1,7 @@
 import type { Scheduler } from "../scheduler";
 import { createNoiseBuffer } from "../noise";
 import { SESSION_PITCH_RATIO } from "../scale";
+import type { ArrangementReader } from "../arrangement";
 
 const RISER_DURATION = 3; // seconds, roughly a 1.5-bar sweep at 150 BPM
 
@@ -17,6 +18,7 @@ export function createRiserVoice(
   ctx: AudioContext,
   destination: AudioNode,
   scheduler: Scheduler,
+  arrangement: ArrangementReader,
 ): RiserVoice {
   function triggerNoise(time: number): void {
     const noise = ctx.createBufferSource();
@@ -67,6 +69,7 @@ export function createRiserVoice(
 
   return {
     trigger(variant: number): void {
+      if (arrangement.isTriggerBlocked()) return; // the "pre-drop" mute -- silent in the beat right before climax lands
       const time = scheduler.nextQuantizedTime("bar");
       if (variant === 0) triggerNoise(time);
       else triggerTone(time);

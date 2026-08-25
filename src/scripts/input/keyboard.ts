@@ -13,6 +13,7 @@ export interface KeyboardHandlers {
   onDropToggle?(): void;
   onBeatJumpStart?(direction: 1 | -1, key: string): void;
   onBeatJumpStop?(key: string): void;
+  onArrangementCycle?(key: string): void;
 }
 
 /**
@@ -43,6 +44,12 @@ export function attachKeyboard(handlers: KeyboardHandlers, onFirstKey: () => voi
       if (event.repeat) return; // our own interval drives the repeat, not the OS's
       event.preventDefault();
       handlers.onBeatJumpStart?.(event.key === "ArrowRight" ? 1 : -1, event.key);
+      return;
+    }
+    if (event.key === "Tab") {
+      if (event.repeat) return; // one cycle per press, not a held ramp
+      event.preventDefault(); // no focusable elements to tab between in this document-level instrument
+      handlers.onArrangementCycle?.(event.key);
       return;
     }
     const def = lookupKey(event.key);

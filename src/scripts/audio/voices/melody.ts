@@ -7,6 +7,7 @@ import { reserveVoices } from "../voiceBudget";
 import type { SpaceBus } from "../space";
 import type { MelodyParams } from "../../input/keymap";
 import { MELODY_MOTIFS, type Motif } from "../patterns";
+import type { ArrangementReader } from "../arrangement";
 
 const REGISTER_BAND_BELOW = 4;
 const REGISTER_BAND_ABOVE = 10;
@@ -68,6 +69,7 @@ export function createMelodyVoice(
   scheduler: Scheduler,
   filterMacro: FilterMacro,
   spaceBus: SpaceBus,
+  arrangement: ArrangementReader,
 ): MelodyVoice {
   const lines = new Map<number, ActiveLine>();
 
@@ -215,6 +217,7 @@ export function createMelodyVoice(
           unsubscribe: () => {},
         };
         line.unsubscribe = scheduler.onTick((tickIndex, time) => {
+          if (arrangement.isTriggerBlocked()) return; // the "pre-drop" mute -- silent in the beat right before climax lands
           if (tickIndex % params.tickSubdivision !== 0) return;
           const offset = motif[tickIndex % TICKS_PER_BAR];
           if (offset === null) return; // rest: hold the current pitch, don't sound it
